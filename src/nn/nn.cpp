@@ -1104,8 +1104,8 @@ int main() {
 	Dataset train;
 	//train.load_mnist_data("../data/fashion_mnist_train_vectors.csv", true);
 	//train.load_labels("../data/fashion_mnist_train_labels.csv");
-	train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
-	train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
+	train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
+	train.load_labels("data/fashion_mnist_train_labels_00.csv");
 
 	Dataset validation = train.separate_validation_dataset(0.2);
 
@@ -1127,12 +1127,12 @@ int main() {
 	nn.train(5, &train_loader, &validation_loader);
 
 	Dataset test;
-	test.load_data("../../data/fashion_mnist_test_vectors_00.csv", true);
+	test.load_data("data/fashion_mnist_test_vectors_00.csv", true);
 	DataLoader test_loader(&test, 200);
 
 	nn.predict(&test_loader);
 
-	//test.save_labels("../../actualPredictionsExample");
+	test.save_labels("data/actualPredictionsExample");
 
 }
 
