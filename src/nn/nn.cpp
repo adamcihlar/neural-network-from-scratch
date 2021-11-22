@@ -385,7 +385,6 @@ public:
 		Values[nrow] = values;
 	}
 
-	// smazal jsem this->
 	Matrix dot(Matrix second) {
 		int ncols1 = get_shape()[1];
 		int nrows2 = second.get_shape()[0];
@@ -395,8 +394,8 @@ public:
 			Matrix result({ {} }, nrows1, ncols2);
 
 			for (int i = 0; i < nrows1; i++) {
-				for (int j = 0; j < ncols2; j++) {
-					for (int k = 0; k < nrows2; k++) {
+				for (int k = 0; k < nrows2; k++) {
+					for (int j = 0; j < ncols2; j++) {
 						result.Values[i][j] += Values[i][k] * second.Values[k][j];
 					}
 				}
@@ -1097,34 +1096,36 @@ private:
 
 int main() {
 
+	auto start = std::chrono::high_resolution_clock::now();
 
 	int batch_size = 32;
 	double learning_rate = 0.01;
 
 	Dataset train;
-	//train.load_mnist_data("../data/fashion_mnist_train_vectors.csv", true);
-	//train.load_labels("../data/fashion_mnist_train_labels.csv");
-	train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
-	train.load_labels("data/fashion_mnist_train_labels_00.csv");
+	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	train.load_labels("data/fashion_mnist_train_labels.csv");
+	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
+	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
+	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
+	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
 	Dataset validation = train.separate_validation_dataset(0.2);
 
 	DataLoader train_loader(&train, batch_size);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 128, true);
-	Layer layer1(128, 64, true);
-	Layer layer2(64, 32, true);
-	Layer layer3(32, CLASSES, true);
+	Layer layer0(train.get_X_cols(), 256, true);
+	Layer layer1(256, 64, true);
+	Layer layer2(64, CLASSES, true);
 	ReLU relu;
 	Softmax softmax;
 	SGD sgd(learning_rate, 0.0);
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
-	NeuralNetwork nn({ &layer0, &layer1, &layer2, &layer3 }, { &relu, &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
+	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(5, &train_loader, &validation_loader);
+	nn.train(4, &train_loader, &validation_loader);
 
 	Dataset test;
 	test.load_data("data/fashion_mnist_test_vectors_00.csv", true);
@@ -1134,5 +1135,9 @@ int main() {
 
 	test.save_labels("data/actualPredictionsExample");
 
+	auto stop = std::chrono::high_resolution_clock::now();
+
+	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+	std::cout << duration.count() << std::endl;
 }
 
