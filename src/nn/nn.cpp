@@ -307,7 +307,7 @@ private:
 };
 
 
-// ALLOC - tady je hlavni misto pro optimalizace
+// ALLOC - tady je pravdepodobne hlavni misto pro optimalizace
 // urcite potrebuju nenarocne prenastavovani values, abych mohl jen ladovat nove hodnoty do predpripravenych matic
 class Matrix
 {
@@ -321,40 +321,38 @@ public:
 		double std = 0.1
 	) {
 		if (!data.empty() && !data.at(0).empty()) {
-			Values = data;
+			values = data;
 		}
 		else if (rand_init)
 		{
 			NormalRandomGenerator randgen(mean, std);
-			std::vector<std::vector<double>> data(nrow);
-			for (int i = 0; i < nrow; i++)
-				data[i].resize(ncol);
+			std::vector<std::vector<double>> data(nrow, std::vector<double>(ncol));
 			for (size_t i = 0; i < data.size(); i++) {
 				for (size_t j = 0; j < data.at(i).size(); j++) {
 					data[i][j] = randgen.get_sample();
 				}
 			}
-			Values = data;
+			values = data;
 		}
 		else {
 			if (nrow == 0) nrow = 1;
 			std::vector<std::vector<double>> data(nrow);
 			for (int i = 0; i < nrow; i++)
 				data[i].resize(ncol, mean);
-			Values = data;
+			values = data;
 		}
 
-		Shape.push_back(Values.size());
-		Shape.push_back(Values.at(0).size());
+		shape.push_back(values.size());
+		shape.push_back(values.at(0).size());
 	}
 
 	void print_matrix() {
-		if (!Values.empty() && !Values.at(0).empty()) {
+		if (!values.empty() && !values.at(0).empty()) {
 
-			for (int i = 0; i < Shape[0]; i++) {
+			for (int i = 0; i < shape[0]; i++) {
 				std::cout << "[ ";
-				for (int j = 0; j < Shape[1]; j++) {
-					std::cout << Values[i][j] << " ";
+				for (int j = 0; j < shape[1]; j++) {
+					std::cout << values[i][j] << " ";
 				}
 				std::cout << "]" << std::endl;
 			}
@@ -366,23 +364,23 @@ public:
 
 	void print_shape() {
 		std::cout << "(";
-		for (size_t i = 0; i < Shape.size(); i++) {
-			std::cout << " " << Shape.at(i);
+		for (size_t i = 0; i < shape.size(); i++) {
+			std::cout << " " << shape.at(i);
 		}
 		std::cout << " )" << std::endl;
 	}
 
 	std::vector<int> get_shape() {
-		return Shape;
+		return shape;
 	}
 	std::vector<std::vector<double>> get_values() {
-		return Values;
+		return values;
 	}
 	void set_value(int nrow, int ncol, double value) {
-		Values[nrow][ncol] = value;
+		values[nrow][ncol] = value;
 	}
-	void set_row(int nrow, std::vector<double> values) {
-		Values[nrow] = values;
+	void set_row(int nrow, std::vector<double> in_values) {
+		values[nrow] = in_values;
 	}
 
 	Matrix dot(Matrix second) {
@@ -396,7 +394,7 @@ public:
 			for (int i = 0; i < nrows1; i++) {
 				for (int k = 0; k < nrows2; k++) {
 					for (int j = 0; j < ncols2; j++) {
-						result.Values[i][j] += Values[i][k] * second.Values[k][j];
+						result.values[i][j] += values[i][k] * second.values[k][j];
 					}
 				}
 			}
@@ -416,7 +414,7 @@ public:
 			Matrix result({ {} }, nrow, ncol);
 			for (int i = 0; i < nrow; i++) {
 				for (int j = 0; j < ncol; j++) {
-					result.Values[i][j] = Values[i][j] + second.Values[i][j];
+					result.values[i][j] = values[i][j] + second.values[i][j];
 				}
 			}
 			return result;
@@ -435,7 +433,7 @@ public:
 			Matrix result({ {} }, nrow, ncol);
 			for (int i = 0; i < nrow; i++) {
 				for (int j = 0; j < ncol; j++) {
-					result.Values[i][j] = Values[i][j] - second.Values[i][j];
+					result.values[i][j] = values[i][j] - second.values[i][j];
 				}
 			}
 			return result;
@@ -448,26 +446,26 @@ public:
 	}
 
 	Matrix multiply(Matrix multiplier) {
-		Matrix result({ {} }, Shape[0], Shape[1]);
+		Matrix result({ {} }, shape[0], shape[1]);
 
-		if (multiplier.get_shape()[0] == 1 && Shape[1] == multiplier.get_shape()[1]) {
-			for (size_t i = 0; i < Shape[0]; i++) {
-				for (size_t j = 0; j < Shape[1]; j++) {
-					result.set_value(i, j, Values[i][j] * multiplier.get_values()[0][j]);
+		if (multiplier.get_shape()[0] == 1 && shape[1] == multiplier.get_shape()[1]) {
+			for (size_t i = 0; i < shape[0]; i++) {
+				for (size_t j = 0; j < shape[1]; j++) {
+					result.set_value(i, j, values[i][j] * multiplier.get_values()[0][j]);
 				}
 			}
 		}
-		else if (multiplier.get_shape() == Shape) {
-			for (size_t i = 0; i < Shape[0]; i++) {
-				for (size_t j = 0; j < Shape[1]; j++) {
-					result.set_value(i, j, Values[i][j] * multiplier.get_values()[i][j]);
+		else if (multiplier.get_shape() == shape) {
+			for (size_t i = 0; i < shape[0]; i++) {
+				for (size_t j = 0; j < shape[1]; j++) {
+					result.set_value(i, j, values[i][j] * multiplier.get_values()[i][j]);
 				}
 			}
 		}
 		else if (multiplier.get_shape()[1] == 1) {
-			for (size_t i = 0; i < Shape[0]; i++) {
-				for (size_t j = 0; j < Shape[1]; j++) {
-					result.set_value(i, j, Values[i][j] * multiplier.get_values()[0][0]);
+			for (size_t i = 0; i < shape[0]; i++) {
+				for (size_t j = 0; j < shape[1]; j++) {
+					result.set_value(i, j, values[i][j] * multiplier.get_values()[0][0]);
 				}
 			}
 		}
@@ -478,31 +476,31 @@ public:
 	}
 
 	Matrix scalar_mul(double multiplier) {
-		Matrix result({ {} }, Shape[0], Shape[1]);
-		for (size_t i = 0; i < Shape[0]; i++) {
-			for (size_t j = 0; j < Shape[1]; j++) {
-				result.set_value(i, j, Values[i][j] * multiplier);
+		Matrix result({ {} }, shape[0], shape[1]);
+		for (size_t i = 0; i < shape[0]; i++) {
+			for (size_t j = 0; j < shape[1]; j++) {
+				result.set_value(i, j, values[i][j] * multiplier);
 			}
 		}
 		return result;
 	}
 
 	void transpose() {
-		std::vector<std::vector<double>> transposed(Shape[1], std::vector<double>(Shape[0]));
+		std::vector<std::vector<double>> transposed(shape[1], std::vector<double>(shape[0]));
 		for (size_t i = 0; i < transposed.size(); i++) {
 			for (size_t j = 0; j < transposed[i].size(); j++) {
-				transposed[i][j] = Values[j][i];
+				transposed[i][j] = values[j][i];
 			}
 		}
-		Values = transposed;
-		Shape = { Shape[1], Shape[0] };
+		values = transposed;
+		shape = { shape[1], shape[0] };
 	}
 
 	Matrix get_transposed() {
-		std::vector<std::vector<double>> transposed(Shape[1], std::vector<double>(Shape[0]));
+		std::vector<std::vector<double>> transposed(shape[1], std::vector<double>(shape[0]));
 		for (size_t i = 0; i < transposed.size(); i++) {
 			for (size_t j = 0; j < transposed[i].size(); j++) {
-				transposed[i][j] = Values[j][i];
+				transposed[i][j] = values[j][i];
 			}
 		}
 		Matrix result(transposed);
@@ -510,23 +508,23 @@ public:
 	}
 
 	Matrix col_sums() {
-		std::vector<double> sums(Shape[1]);
-		for (size_t i = 0; i < Shape[0]; i++)
-			for (size_t j = 0; j < Shape[1]; j++)
-				sums[j] += Values[i][j];
+		std::vector<double> sums(shape[1]);
+		for (size_t i = 0; i < shape[0]; i++)
+			for (size_t j = 0; j < shape[1]; j++)
+				sums[j] += values[i][j];
 		return Matrix({ sums });
 	}
 
 	Matrix row_sums() {
-		std::vector<double> sums(Shape[0]);
-		for (size_t i = 0; i < Shape[0]; i++)
-			sums[i] = std::accumulate(Values[i].begin(), Values[i].end(), 0);
+		std::vector<double> sums(shape[0]);
+		for (size_t i = 0; i < shape[0]; i++)
+			sums[i] = std::accumulate(values[i].begin(), values[i].end(), 0);
 		return Matrix({ sums });
 	}
 
 private:
-	std::vector<int> Shape;
-	std::vector<std::vector<double>> Values;
+	std::vector<int> shape;
+	std::vector<std::vector<double>> values;
 
 };
 
@@ -1098,14 +1096,14 @@ int main() {
 
 	auto start = std::chrono::high_resolution_clock::now();
 
-	int batch_size = 32;
+	int batch_size = 64;
 	double learning_rate = 0.01;
 
 	Dataset train;
-	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	train.load_labels("data/fashion_mnist_train_labels.csv");
-	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
-	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
+	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	//train.load_labels("data/fashion_mnist_train_labels.csv");
+	train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
+	train.load_labels("data/fashion_mnist_train_labels_00.csv");
 	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
@@ -1125,7 +1123,7 @@ int main() {
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(4, &train_loader, &validation_loader);
+	nn.train(3, &train_loader, &validation_loader);
 
 	Dataset test;
 	test.load_data("data/fashion_mnist_test_vectors_00.csv", true);
@@ -1137,7 +1135,7 @@ int main() {
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
-	auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
 	std::cout << duration.count() << std::endl;
 }
 
