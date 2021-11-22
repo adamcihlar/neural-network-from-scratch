@@ -1100,10 +1100,10 @@ int main() {
 	double learning_rate = 0.01;
 
 	Dataset train;
-	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	//train.load_labels("data/fashion_mnist_train_labels.csv");
-	train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
-	train.load_labels("data/fashion_mnist_train_labels_00.csv");
+	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	train.load_labels("data/fashion_mnist_train_labels.csv");
+	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
+	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
 	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
@@ -1123,10 +1123,10 @@ int main() {
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(3, &train_loader, &validation_loader);
+	nn.train(6, &train_loader, &validation_loader);
 
 	Dataset test;
-	test.load_data("data/fashion_mnist_test_vectors_00.csv", true);
+	test.load_data("data/fashion_mnist_test_vectors.csv", true);
 	DataLoader test_loader(&test, 200);
 
 	nn.predict(&test_loader);
