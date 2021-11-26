@@ -413,20 +413,6 @@ public:
 			return Matrix();
 		}
 	}
-	void sum_ip(Matrix second) {
-		if (get_shape() == second.get_shape()) {
-			int nrow = get_shape()[0];
-			int ncol = get_shape()[1];
-			for (int i = 0; i < nrow; i++) {
-				for (int j = 0; j < ncol; j++) {
-					values[i][j] = values[i][j] + second.values[i][j];
-				}
-			}
-		}
-		else {
-			std::cerr << "Nonconformable dimensions, both dimensions must match.\n";
-		}
-	}
 
 	Matrix substract(Matrix second) {
 		if (get_shape() == second.get_shape()) {
@@ -442,20 +428,6 @@ public:
 		else {
 			std::cerr << "Nonconformable dimensions, both dimensions must match.\n";
 			return Matrix();
-		}
-	}
-	void substract_ip(Matrix second) {
-		if (get_shape() == second.get_shape()) {
-			int nrow = get_shape()[0];
-			int ncol = get_shape()[1];
-			for (int i = 0; i < nrow; i++) {
-				for (int j = 0; j < ncol; j++) {
-					values[i][j] = values[i][j] - second.values[i][j];
-				}
-			}
-		}
-		else {
-			std::cerr << "Nonconformable dimensions, both dimensions must match.\n";
 		}
 	}
 
@@ -488,33 +460,6 @@ public:
 		return Matrix(cachedValues);
 	}
 
-	void multiply_ip(Matrix multiplier) {
-		if (multiplier.get_shape()[0] == 1 && shape[1] == multiplier.get_shape()[1]) {
-			for (size_t i = 0; i < shape[0]; i++) {
-				for (size_t j = 0; j < shape[1]; j++) {
-					values[i][j] = values[i][j] * multiplier.get_values()[0][j];
-				}
-			}
-		}
-		else if (multiplier.get_shape() == shape) {
-			for (size_t i = 0; i < shape[0]; i++) {
-				for (size_t j = 0; j < shape[1]; j++) {
-					values[i][j] = values[i][j] * multiplier.get_values()[i][j];
-				}
-				std::cout << i << std::endl;
-			}
-		}
-		else if (multiplier.get_shape()[1] == 1) {
-			for (size_t i = 0; i < shape[0]; i++) {
-				for (size_t j = 0; j < shape[1]; j++) {
-					values[i][j] = values[i][j] * multiplier.get_values()[0][0];
-				}
-			}
-		}
-		else {
-			std::cerr << "Nonconformable dimensions, multiplier must be either {scalar} or vector of shape (1, matrix.ncol).\n";
-		}
-	}
 
 	Matrix scalar_mul(double multiplier) {
 		for (size_t i = 0; i < shape[0]; i++) {
@@ -523,13 +468,6 @@ public:
 			}
 		}
 		return Matrix(cachedValues);
-	}
-	void scalar_mul_ip(double multiplier) {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				values[i][j] = values[i][j] * multiplier;
-			}
-		}
 	}
 
 	Matrix add_scalar(double add) {
@@ -540,13 +478,6 @@ public:
 		}
 		return Matrix(cachedValues);
 	}
-	void add_scalar_ip(double add) {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				values[i][j] = values[i][j] + add;
-			}
-		}
-	}
 
 	Matrix square_elements() {
 		for (size_t i = 0; i < shape[0]; i++) {
@@ -556,13 +487,6 @@ public:
 		}
 		return Matrix(cachedValues);
 	}
-	void square_elements_ip() {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				values[i][j] = pow(values[i][j], 2);
-			}
-		}
-	}
 
 	Matrix root_elements() {
 		for (size_t i = 0; i < shape[0]; i++) {
@@ -571,13 +495,6 @@ public:
 			}
 		}
 		return Matrix(cachedValues);
-	}
-	void root_elements_ip() {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				values[i][j] = sqrt(values[i][j]);
-			}
-		}
 	}
 
 	void transpose() {
@@ -718,7 +635,7 @@ private:
 
 class Layer {
 public:
-	Layer(int n_inputs, int n_outputs, bool rand_init = true, double mean = 0, double std = -9999) {
+	Layer(int n_inputs, int n_outputs, bool rand_init = true, double mean = 0, double std = -9999, double dropout = 0.0) {
 		if (std == -9999) {
 			// He weights initialization
 			std = sqrt(2.0 / n_inputs);
@@ -729,6 +646,7 @@ public:
 		weights = weights_init;
 		weightsShape = weights.get_shape();
 		w0Shape = w0.get_shape();
+		this->dropout = dropout;
 	}
 
 	Matrix pass(Matrix inputs) {
@@ -761,6 +679,8 @@ private:
 	Matrix w0;
 	std::vector<unsigned int> weightsShape;
 	std::vector<unsigned int> w0Shape;
+	double dropout;
+	std::vector<double> dropoutMask;
 };
 
 
@@ -975,59 +895,6 @@ private:
 	std::vector<Matrix> currentWeightsUpdate;
 	std::vector<Matrix> previousBiasUpdate;
 	std::vector<Matrix> previousWeightsUpdate;
-};
-
-class RMSProp :public Optimizer {
-public:
-	RMSProp(double learning_rate, double rho_forgetting = 0.0) : learningRate(learning_rate), rhoForgetting(rho_forgetting) {}
-
-	std::vector<Matrix> calculate_bias_update(std::vector<Matrix> bias_grad) {
-		for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
-			std::cout << "bias " << i << std::endl;
-			cumulativeBiasUpdate[i] = cumulativeBiasUpdate[i].scalar_mul(rhoForgetting).sum(bias_grad[i].square_elements().scalar_mul(1 - rhoForgetting));
-			std::cout << "bias " << i << std::endl;
-			currentBiasUpdate[i] = cumulativeBiasUpdate[i].add_scalar(delta).root_elements().scalar_mul(-learningRate).multiply(bias_grad[i]);
-		}
-		return currentBiasUpdate;
-	}
-
-	std::vector<Matrix> calculate_weights_update(std::vector<Matrix> weights_grad) {
-		for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
-			std::cout << "weights " << i << std::endl;
-			cumulativeWeightsUpdate[i] = cumulativeWeightsUpdate[i].scalar_mul(rhoForgetting).sum(weights_grad[i].square_elements().scalar_mul(1 - rhoForgetting));
-			std::cout << "weights " << i << std::endl;
-
-			cumulativeWeightsUpdate[i].add_scalar_ip(delta);
-			cumulativeWeightsUpdate[i].root_elements_ip();
-			cumulativeWeightsUpdate[i].scalar_mul_ip(-learningRate);
-			cumulativeWeightsUpdate[i].multiply_ip(weights_grad[i]);
-			//currentWeightsUpdate[i] = cumulativeWeightsUpdate[i].add_scalar(delta).root_elements().scalar_mul(-learningRate).multiply(weights_grad[i]); // posledni multiply je killer
-			std::cout << "weights " << i << std::endl;
-		}
-		return currentWeightsUpdate;
-	}
-
-	void get_ready_for_optimization(std::vector<Layer*> nn_layers) {
-		set_weights_update_dimensions(nn_layers);
-	}
-
-	void set_weights_update_dimensions(std::vector<Layer*> nn_layers) {
-		for (size_t i = 0; i < nn_layers.size(); i++) {
-			currentBiasUpdate.push_back(Matrix(nn_layers[i]->get_bias_shape()[0], nn_layers[i]->get_bias_shape()[1]));
-			cumulativeBiasUpdate.push_back(Matrix(nn_layers[i]->get_bias_shape()[0], nn_layers[i]->get_bias_shape()[1]));
-			currentWeightsUpdate.push_back(Matrix(nn_layers[i]->get_weights_shape()[0], nn_layers[i]->get_weights_shape()[1]));
-			cumulativeWeightsUpdate.push_back(Matrix(nn_layers[i]->get_weights_shape()[0], nn_layers[i]->get_weights_shape()[1]));
-		}
-	}
-
-private:
-	double learningRate;
-	double rhoForgetting;
-	std::vector<Matrix> currentBiasUpdate;
-	std::vector<Matrix> currentWeightsUpdate;
-	std::vector<Matrix> cumulativeBiasUpdate;
-	std::vector<Matrix> cumulativeWeightsUpdate;
-	const double delta = 0.0001;
 };
 
 class Metric {
@@ -1288,12 +1155,11 @@ int main() {
 	ReLU relu;
 	Softmax softmax;
 	SGD sgd(learning_rate, 0.5);
-	RMSProp rmsprop(learning_rate, 0.9);
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
 
-	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &rmsprop, &loss_func, &acc);
+	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
 	nn.train(5, &train_loader, &validation_loader);
 
