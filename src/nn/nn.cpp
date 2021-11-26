@@ -632,25 +632,17 @@ public:
 		return result;
 	}
 
-	Matrix get_weights() {
-		return weights;
-	}
-	void set_weights(Matrix new_weights) {
-		weights = new_weights;
-	}
-	std::vector<unsigned int> get_weights_shape() {
-		return weightsShape;
-	}
+	Matrix get_weights() { return weights; }
 
-	Matrix get_bias() {
-		return w0;
-	}
-	void set_bias(Matrix new_weights) {
-		w0 = new_weights;
-	}
-	std::vector<unsigned int> get_bias_shape() {
-		return w0Shape;
-	}
+	void set_weights(Matrix new_weights) { weights = new_weights; }
+
+	std::vector<unsigned int> get_weights_shape() { return weightsShape; }
+
+	Matrix get_bias() { return w0; }
+
+	void set_bias(Matrix new_weights) { w0 = new_weights; }
+
+	std::vector<unsigned int> get_bias_shape() { return w0Shape; }
 
 private:
 	Matrix weights;
@@ -814,7 +806,7 @@ class Optimizer {
 public:
 	virtual std::vector<Matrix> calculate_bias_update(std::vector<Matrix> bias_grad) = 0;
 	virtual std::vector<Matrix> calculate_weights_update(std::vector<Matrix> weights_grad) = 0;
-	virtual void get_ready_for_optimization(std::vector<Layer> nn_layers) = 0;
+	virtual void get_ready_for_optimization(std::vector<Layer *> nn_layers) = 0;
 private:
 	double learningRate;
 };
@@ -827,33 +819,47 @@ public:
 	}
 
 	std::vector<Matrix> calculate_bias_update(std::vector<Matrix> bias_grad) {
-		std::vector<Matrix> bias_update(bias_grad.size()); // ALLOC - I know the dims on init of NN
-		for (size_t i = 0; i < bias_update.size(); i++) {
-			bias_update[i] = bias_grad[i].scalar_mul(-learningRate); // .sum(previousBiasUpdate[i].scalar_mul(MomentumAlpha));
+		if (momentumAlpha == 0.0) {
+			for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
+				currentBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate);
+			}
+			return currentBiasUpdate;
 		}
-		//previousBiasUpdate = bias_update;
-		return bias_update;
+
+		for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
+			currentBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate).sum(previousBiasUpdate[i].scalar_mul(momentumAlpha));
+		}
+		previousBiasUpdate = currentBiasUpdate;
+		return currentBiasUpdate;
 	}
 
 	std::vector<Matrix> calculate_weights_update(std::vector<Matrix> weights_grad) {
-		std::vector<Matrix> weights_update(weights_grad.size());
-		for (size_t i = 0; i < weights_update.size(); i++) {
-			weights_update[i] = weights_grad[i].scalar_mul(-learningRate); // .sum(previousWeightsUpdate[i].scalar_mul(MomentumAlpha));
+		if (momentumAlpha == 0.0) {
+			for (size_t i = 0; i < currentWeightsUpdate.size(); i++) {
+				currentWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate);
+			}
+			return currentWeightsUpdate;
 		}
-		//previousWeightsUpdate = weights_update;
-		return weights_update;
+
+		for (size_t i = 0; i < currentWeightsUpdate.size(); i++) {
+			currentWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate).sum(previousWeightsUpdate[i].scalar_mul(momentumAlpha));
+		}
+		previousWeightsUpdate = currentWeightsUpdate;
+		return currentWeightsUpdate;
 	}
 
-	void get_ready_for_optimization(std::vector<Layer> nn_layers) {
-		//set_weights_update_dimensions(nn_layers);
+	void get_ready_for_optimization(std::vector<Layer*> nn_layers) {
+		set_weights_update_dimensions(nn_layers);
 	}
 
-	//void set_weights_update_dimensions(std::vector<Layer> nn_layers) {
-	//	for (size_t i = 0; i < nn_layers.size(); i++) {
-	//		Matrix currentBiasUpdate[i]({ {} }, nn_layers[i].get_bias_shape();
-	//		nn_layers[i].get_bias_shape();
-	//	}
-	//}
+	void set_weights_update_dimensions(std::vector<Layer*> nn_layers) {
+		for (size_t i = 0; i < nn_layers.size(); i++) {
+			currentBiasUpdate.push_back(Matrix(nn_layers[i]->get_bias_shape()[0], nn_layers[i]->get_bias_shape()[1]));
+			previousBiasUpdate.push_back(Matrix(nn_layers[i]->get_bias_shape()[0], nn_layers[i]->get_bias_shape()[1]));
+			currentWeightsUpdate.push_back(Matrix(nn_layers[i]->get_weights_shape()[0], nn_layers[i]->get_weights_shape()[1]));
+			previousWeightsUpdate.push_back(Matrix(nn_layers[i]->get_weights_shape()[0], nn_layers[i]->get_weights_shape()[1]));
+		}
+	}
 
 private:
 	double learningRate;
@@ -862,6 +868,7 @@ private:
 	std::vector<Matrix> currentWeightsUpdate;
 	std::vector<Matrix> previousBiasUpdate;
 	std::vector<Matrix> previousWeightsUpdate;
+	std::vector<Layer*> optimizedLayers;
 };
 
 class Metric {
@@ -910,12 +917,13 @@ public:
 			lossFunction = loss_function;
 			this->metric = metric;
 			epochsDone = 0;
+
+			this->optimizer->get_ready_for_optimization(this->layers);
 		}
 		else {
 			std::cerr << "Number of layers must correspond to number of activation functions.\n";
 		}
 	}
-
 
 
 	void train(int epochs, DataLoader* train_dataset, DataLoader* validation_dataset, bool shuffle_train = true) {
@@ -1121,13 +1129,14 @@ int main() {
 	Layer layer2(32, CLASSES, true);
 	ReLU relu;
 	Softmax softmax;
-	SGD sgd(learning_rate, 0.0);
+	SGD sgd(learning_rate, 0.5);
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
+
 	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(2, &train_loader, &validation_loader);
+	nn.train(5, &train_loader, &validation_loader);
 
 	//Dataset test;
 	//test.load_data("data/fashion_mnist_test_vectors.csv", true);
