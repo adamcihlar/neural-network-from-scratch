@@ -312,38 +312,22 @@ private:
 class Matrix
 {
 public:
-	Matrix(
-		std::vector<std::vector<double>> data = { {} },
-		int nrow = 0,
-		int ncol = 0,
-		bool rand_init = false,
-		double mean = 0,
-		double std = 0.1
-	) {
-		if (!data.empty() && !data.at(0).empty()) {
-			values = data;
-		}
-		else if (rand_init)
-		{
-			NormalRandomGenerator randgen(mean, std);
-			std::vector<std::vector<double>> data(nrow, std::vector<double>(ncol));
-			for (size_t i = 0; i < data.size(); i++) {
-				for (size_t j = 0; j < data.at(i).size(); j++) {
-					data[i][j] = randgen.get_sample();
-				}
-			}
-			values = data;
-		}
-		else {
-			if (nrow == 0) nrow = 1;
-			std::vector<std::vector<double>> data(nrow);
-			for (int i = 0; i < nrow; i++)
-				data[i].resize(ncol, mean);
-			values = data;
-		}
+	Matrix() : values(0, std::vector<double>(0)), shape({0,0}) {}
 
-		shape.push_back(values.size());
-		shape.push_back(values.at(0).size());
+	/* Matrix init with given shape and default value */
+	Matrix(unsigned int nrow, unsigned int ncol, double default_value = 0) : values(nrow, std::vector<double>(ncol, default_value)), shape({ nrow, ncol }) {}
+
+	/* Matrix init with given data */
+	Matrix(std::vector<std::vector<double>> data) : values(data), shape({data.size(), data[0].size()}) {}
+
+	/* Matrix random init with given shape */
+	Matrix(unsigned int nrow, unsigned int ncol, double mean, double std) : values(nrow, std::vector<double>(ncol)), shape({ nrow, ncol }) {
+		NormalRandomGenerator randgen(mean, std);
+		for (size_t i = 0; i < shape[0]; i++) {
+			for (size_t j = 0; j < shape[1]; j++) {
+				values[i][j] = randgen.get_sample();
+			}
+		}
 	}
 
 	void print_matrix() {
@@ -370,7 +354,7 @@ public:
 		std::cout << " )" << std::endl;
 	}
 
-	std::vector<int> get_shape() {
+	std::vector<unsigned int> get_shape() {
 		return shape;
 	}
 	std::vector<std::vector<double>> get_values() {
@@ -389,7 +373,7 @@ public:
 		if (ncols1 == nrows2) {
 			int nrows1 = get_shape()[0];
 			int ncols2 = second.get_shape()[1];
-			Matrix result({ {} }, nrows1, ncols2);
+			Matrix result(nrows1, ncols2);
 
 			for (int i = 0; i < nrows1; i++) {
 				for (int k = 0; k < nrows2; k++) {
@@ -411,7 +395,7 @@ public:
 		if (get_shape() == second.get_shape()) {
 			int nrow = get_shape()[0];
 			int ncol = get_shape()[1];
-			Matrix result({ {} }, nrow, ncol);
+			Matrix result(nrow, ncol);
 			for (int i = 0; i < nrow; i++) {
 				for (int j = 0; j < ncol; j++) {
 					result.values[i][j] = values[i][j] + second.values[i][j];
@@ -430,7 +414,7 @@ public:
 		if (get_shape() == second.get_shape()) {
 			int nrow = get_shape()[0];
 			int ncol = get_shape()[1];
-			Matrix result({ {} }, nrow, ncol);
+			Matrix result(nrow, ncol);
 			for (int i = 0; i < nrow; i++) {
 				for (int j = 0; j < ncol; j++) {
 					result.values[i][j] = values[i][j] - second.values[i][j];
@@ -446,7 +430,7 @@ public:
 	}
 
 	Matrix multiply(Matrix multiplier) {
-		Matrix result({ {} }, shape[0], shape[1]);
+		Matrix result(shape[0], shape[1]);
 
 		if (multiplier.get_shape()[0] == 1 && shape[1] == multiplier.get_shape()[1]) {
 			for (size_t i = 0; i < shape[0]; i++) {
@@ -476,7 +460,7 @@ public:
 	}
 
 	Matrix scalar_mul(double multiplier) {
-		Matrix result({ {} }, shape[0], shape[1]);
+		Matrix result(shape[0], shape[1]);
 		for (size_t i = 0; i < shape[0]; i++) {
 			for (size_t j = 0; j < shape[1]; j++) {
 				result.set_value(i, j, values[i][j] * multiplier);
@@ -523,7 +507,7 @@ public:
 	}
 
 private:
-	std::vector<int> shape;
+	std::vector<unsigned int> shape;
 	std::vector<std::vector<double>> values;
 
 };
@@ -627,10 +611,12 @@ public:
 			// He weights initialization
 			std = sqrt(2.0 / n_inputs);
 		}
-		Matrix w0_init({ {} }, 1, n_outputs, rand_init, mean, std);
+		Matrix w0_init(1, n_outputs, mean, std);
 		w0 = w0_init;
-		Matrix weights_init({ {} }, n_inputs, n_outputs, rand_init, mean, std);
+		Matrix weights_init(n_inputs, n_outputs, mean, std);
 		weights = weights_init;
+		weightsShape = weights.get_shape();
+		w0Shape = w0.get_shape();
 	}
 
 	Matrix pass(Matrix inputs) {
@@ -652,6 +638,9 @@ public:
 	void set_weights(Matrix new_weights) {
 		weights = new_weights;
 	}
+	std::vector<unsigned int> get_weights_shape() {
+		return weightsShape;
+	}
 
 	Matrix get_bias() {
 		return w0;
@@ -659,17 +648,22 @@ public:
 	void set_bias(Matrix new_weights) {
 		w0 = new_weights;
 	}
+	std::vector<unsigned int> get_bias_shape() {
+		return w0Shape;
+	}
 
 private:
 	Matrix weights;
 	Matrix w0;
+	std::vector<unsigned int> weightsShape;
+	std::vector<unsigned int> w0Shape;
 };
 
 
 class ActivationFunction {
 public:
 	Matrix evaluate_batch(Matrix batch_inner_potentials) {
-		Matrix result({ {} }, batch_inner_potentials.get_shape()[0], batch_inner_potentials.get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
+		Matrix result(batch_inner_potentials.get_shape()[0], batch_inner_potentials.get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
 		for (int i = 0; i < batch_inner_potentials.get_shape()[0]; i++) {
 			result.set_row(i, evaluate_layer(batch_inner_potentials.get_values()[i]));
 		}
@@ -677,7 +671,7 @@ public:
 	}
 
 	Matrix derive_batch(Matrix batch_neuron_outputs, Matrix batch_y_true = Matrix()) {
-		Matrix result({ {} }, batch_neuron_outputs.get_shape()[0], batch_neuron_outputs.get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
+		Matrix result(batch_neuron_outputs.get_shape()[0], batch_neuron_outputs.get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
 		if (batch_y_true.get_shape()[1] > 0) {
 			for (size_t i = 0; i < batch_neuron_outputs.get_shape()[0]; i++) {
 				result.set_row(i, derive_layer(batch_neuron_outputs.get_values()[i], batch_y_true.get_values()[i]));
@@ -820,6 +814,7 @@ class Optimizer {
 public:
 	virtual std::vector<Matrix> calculate_bias_update(std::vector<Matrix> bias_grad) = 0;
 	virtual std::vector<Matrix> calculate_weights_update(std::vector<Matrix> weights_grad) = 0;
+	virtual void get_ready_for_optimization(std::vector<Layer> nn_layers) = 0;
 private:
 	double learningRate;
 };
@@ -849,14 +844,22 @@ public:
 		return weights_update;
 	}
 
-	void set_weights_update_dimensions() {
-		// TODO call this on init of NN
-		// give it layers dimensions and create previous update matrixes with 0
+	void get_ready_for_optimization(std::vector<Layer> nn_layers) {
+		//set_weights_update_dimensions(nn_layers);
 	}
+
+	//void set_weights_update_dimensions(std::vector<Layer> nn_layers) {
+	//	for (size_t i = 0; i < nn_layers.size(); i++) {
+	//		Matrix currentBiasUpdate[i]({ {} }, nn_layers[i].get_bias_shape();
+	//		nn_layers[i].get_bias_shape();
+	//	}
+	//}
 
 private:
 	double learningRate;
 	double momentumAlpha;
+	std::vector<Matrix> currentBiasUpdate;
+	std::vector<Matrix> currentWeightsUpdate;
 	std::vector<Matrix> previousBiasUpdate;
 	std::vector<Matrix> previousWeightsUpdate;
 };
@@ -1097,25 +1100,25 @@ int main() {
 	auto start = std::chrono::high_resolution_clock::now();
 
 
-	int batch_size = 64;
+	int batch_size = 16;
 	double learning_rate = 0.01;
 
 	Dataset train;
-	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	train.load_labels("data/fashion_mnist_train_labels.csv");
+	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	//train.load_labels("data/fashion_mnist_train_labels.csv");
 	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
-	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
-	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
+	train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
+	train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
 	Dataset validation = train.separate_validation_dataset(0.2);
 
 	DataLoader train_loader(&train, batch_size);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 256, true);
-	Layer layer1(256, 64, true);
-	Layer layer2(64, CLASSES, true);
+	Layer layer0(train.get_X_cols(), 128, true);
+	Layer layer1(128, 32, true);
+	Layer layer2(32, CLASSES, true);
 	ReLU relu;
 	Softmax softmax;
 	SGD sgd(learning_rate, 0.0);
@@ -1124,15 +1127,15 @@ int main() {
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(6, &train_loader, &validation_loader);
+	nn.train(2, &train_loader, &validation_loader);
 
-	Dataset test;
-	test.load_data("data/fashion_mnist_test_vectors.csv", true);
-	DataLoader test_loader(&test, 200);
+	//Dataset test;
+	//test.load_data("data/fashion_mnist_test_vectors.csv", true);
+	//DataLoader test_loader(&test, 200);
 
-	nn.predict(&test_loader);
+	//nn.predict(&test_loader);
 
-	test.save_labels("data/actualPredictionsExample");
+	//test.save_labels("data/actualPredictionsExample");
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
