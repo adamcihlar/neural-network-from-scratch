@@ -283,29 +283,51 @@ private:
 };
 
 
-class NormalRandomGenerator
+class RandomGenerator
+{
+	virtual double get_sample() = 0;
+};
+
+class NormalRandomGenerator : public RandomGenerator
 {
 public:
 	NormalRandomGenerator(double mean = 0, double std = 1) {
 		std::random_device rd;
-		std::mt19937 gen(rd());
-		std::normal_distribution<double> distribution(mean, std);
 
-		Distribution = distribution;
-		Gen = gen;
-		Mean = mean;
-		Std = std;
+		distribution = std::normal_distribution<double>(mean, std);
+		gen = std::mt19937(rd());
+		this->mean = mean;
+		this->std = std;
 	}
 
 	double get_sample() {
-		return Distribution(Gen);
+		return distribution(gen);
 	}
 private:
-	std::normal_distribution<double> Distribution;
-	std::mt19937 Gen;
-	double Mean, Std;
+	std::normal_distribution<double> distribution;
+	std::mt19937 gen;
+	double mean, std;
 };
 
+class BernoulliGenerator : public RandomGenerator
+{
+public:
+	BernoulliGenerator(double p = 0.5) {
+		std::random_device rd;
+		gen = std::mt19937(rd());
+		distribution = std::bernoulli_distribution(p);
+		this->p = p;
+	}
+
+	double get_sample() {
+		return distribution(gen);
+	}
+
+private:
+	std::bernoulli_distribution distribution;
+	std::mt19937 gen;
+	double p;
+};
 
 // ALLOC - tady je pravdepodobne hlavni misto pro optimalizace
 // urcite potrebuju nenarocne prenastavovani values, abych mohl jen ladovat nove hodnoty do predpripravenych matic
@@ -444,7 +466,6 @@ public:
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier.get_values()[i][j];
 				}
-				std::cout << i << std::endl;
 			}
 		}
 		else if (multiplier.get_shape()[1] == 1) {
@@ -615,6 +636,9 @@ public:
 	int get_n_rows() {
 		return RowsTotal;
 	}
+	int get_batch_size() {
+		return BatchSize;
+	}
 
 private:
 	Dataset* SourceDataset;
@@ -635,31 +659,44 @@ private:
 
 class Layer {
 public:
-	Layer(int n_inputs, int n_outputs, bool rand_init = true, double mean = 0, double std = -9999, double dropout = 0.0) {
-		if (std == -9999) {
-			// He weights initialization
-			std = sqrt(2.0 / n_inputs);
-		}
-		Matrix w0_init(1, n_outputs, mean, std);
-		w0 = w0_init;
-		Matrix weights_init(n_inputs, n_outputs, mean, std);
-		weights = weights_init;
+	Layer(int n_inputs, int n_outputs, double dropout = 0.0) {
+		double std = sqrt(2.0 / n_inputs);
+		w0 = Matrix(1, n_outputs, 0, std);
+		weights = Matrix(n_inputs, n_outputs, 0, std);
 		weightsShape = weights.get_shape();
 		w0Shape = w0.get_shape();
 		this->dropout = dropout;
+		dropoutMask = Matrix(1, n_outputs);
 	}
 
-	Matrix pass(Matrix inputs) {
+	Layer(int n_inputs, int n_outputs, double mean, double std, double dropout = 0.0) {
+		w0 = Matrix(1, n_outputs, mean, std);
+		weights = Matrix(n_inputs, n_outputs, mean, std);
+		weightsShape = weights.get_shape();
+		w0Shape = w0.get_shape();
+		this->dropout = dropout;
+		dropoutMask = Matrix(1, n_outputs);
+	}
+
+	Matrix pass(Matrix inputs, bool dropout_switch_on) {
 		int inputs_nrow = inputs.get_shape()[0];
-		std::vector<std::vector<double>> w0_ext_vals(inputs_nrow); // ALLOC - dims known when calling nn.train / nn.predict
+		if (inputs_nrow != w0ext.get_shape()[0]) {
+			w0ext = Matrix(inputs_nrow, w0Shape[1]);
+		}
 
 		for (int i = 0; i < inputs_nrow; i++)
-			w0_ext_vals[i] = w0.get_values()[0];
-		Matrix w0_ext(w0_ext_vals); // ALLOC - dims known when calling nn.train / nn.predict
+			w0ext.set_row(i, w0.get_values()[0]);
 
-		Matrix result = inputs.dot(weights).sum(w0_ext); // ALLOC - dims known when calling nn.train / nn.predict
-
-		return result;
+		if (dropout != 0.0 && dropout_switch_on) {
+			BernoulliGenerator b_rand(1 - dropout);
+			for (size_t i = 0; i < weightsShape[1]; i++) {
+				dropoutMask.set_value(0, i, b_rand.get_sample() / (1 - dropout));
+			}
+			return Matrix(inputs.dot(weights).sum(w0ext).multiply(dropoutMask)); // ALLOC - dims known when calling nn.train / nn.predict
+		}
+		else {
+			return Matrix(inputs.dot(weights).sum(w0ext)); // ALLOC - dims known when calling nn.train / nn.predict
+		}
 	}
 
 	Matrix get_weights() { return weights; }
@@ -674,13 +711,18 @@ public:
 
 	std::vector<unsigned int> get_bias_shape() { return w0Shape; }
 
+	void get_ready_for_pass(DataLoader* dataloader) {
+		w0ext = Matrix(dataloader->get_batch_size(), w0Shape[1]);
+	}
+
 private:
 	Matrix weights;
 	Matrix w0;
+	Matrix w0ext;
 	std::vector<unsigned int> weightsShape;
 	std::vector<unsigned int> w0Shape;
 	double dropout;
-	std::vector<double> dropoutMask;
+	Matrix dropoutMask;
 };
 
 
@@ -981,7 +1023,7 @@ public:
 
 		for (size_t i = 0; i < n_predictions; i++) {
 			Batch batch = prediction_dataloader->get_one_sample();
-			forward_pass(batch);
+			forward_pass(batch, false);
 			one_hot_predictions[i] = batch_output_probabilities_to_predictions().get_values()[0];
 		}
 
@@ -1015,11 +1057,11 @@ private:
 	std::vector<double> trainMetricInEpoch;
 	std::vector<double> validationMetricInEpoch;
 
-	void forward_pass(Batch batch) {
+	void forward_pass(Batch batch, bool dropout_switch_on) {
 		neuronsOutputs[0] = batch.X;
 		for (size_t i = 0; i < countLayers; i++)
 		{
-			innerPotentials[i] = layers[i]->pass(neuronsOutputs[i]);
+			innerPotentials[i] = layers[i]->pass(neuronsOutputs[i], dropout_switch_on);
 			neuronsOutputs[i + 1] = activationFunctions[i]->evaluate_batch(innerPotentials[i]);
 		}
 	}
@@ -1082,13 +1124,16 @@ private:
 		if (shuffle) train_dataloader->shuffle_dataset();
 		train_dataloader->reset();
 
+		for (size_t i = 0; i < countLayers; i++) {
+			layers[i]->get_ready_for_pass(train_dataloader);
+		}
 		int _iter_in_epoch = 0;
 		double _epoch_sum_of_average_batch_losses = 0;
 		double _epoch_sum_of_average_batch_metric = 0;
 		while (!train_dataloader->is_exhausted()) {
 			Batch batch = train_dataloader->get_sample(); // ALLOC
 
-			forward_pass(batch);
+			forward_pass(batch, true);
 			backward_pass(batch);
 			optimize();
 
@@ -1109,6 +1154,9 @@ private:
 	void validate_epoch(DataLoader* validation_dataloader) {
 		validation_dataloader->reset();
 
+		for (size_t i = 0; i < countLayers; i++) {
+			layers[i]->get_ready_for_pass(validation_dataloader);
+		}
 		int _iter_in_epoch = 0;
 		double _epoch_sum_of_average_batch_losses = 0;
 		double _epoch_sum_of_average_batch_metric = 0;
@@ -1118,7 +1166,7 @@ private:
 		while (!validation_dataloader->is_exhausted()) {
 			Batch batch = validation_dataloader->get_sample(); // ALLOC ?
 
-			forward_pass(batch);
+			forward_pass(batch, false);
 
 			_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, neuronsOutputs[countLayers]);
 			_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
@@ -1149,9 +1197,9 @@ int main() {
 	DataLoader train_loader(&train, batch_size);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 128, true);
-	Layer layer1(128, 32, true);
-	Layer layer2(32, CLASSES, true);
+	Layer layer0(train.get_X_cols(), 128);
+	Layer layer1(128, 32, 0.2);
+	Layer layer2(32, CLASSES);
 	ReLU relu;
 	Softmax softmax;
 	SGD sgd(learning_rate, 0.5);
@@ -1175,5 +1223,6 @@ int main() {
 
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
 	std::cout << duration.count() << std::endl;
+
 }
 
