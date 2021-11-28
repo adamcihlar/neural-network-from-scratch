@@ -742,7 +742,14 @@ public:
 	}
 
 	std::vector<Matrix> calculate_weights_update(std::vector<Matrix> weights_grad) {
-		if (momentumAlpha == 0.0) {
+
+		if (momentumAlpha != 0.0 && nesterovMomentum) {
+			for (size_t i = 0; i < currentWeightsUpdate.size(); i++) {
+				previousWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate).sum(previousWeightsUpdate[i].scalar_mul(momentumAlpha));
+				currentWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate).sum(previousWeightsUpdate[i].scalar_mul(momentumAlpha));
+			}
+			return currentWeightsUpdate;
+		} else if (momentumAlpha == 0.0) {
 			for (size_t i = 0; i < currentWeightsUpdate.size(); i++) {
 				currentWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate);
 			}
@@ -1021,15 +1028,15 @@ int main() {
 	auto start = std::chrono::high_resolution_clock::now();
 
 	int batch_size = 64;
-	double learning_rate = 0.01;
+	double learning_rate = 0.0005;
 
 	Dataset train;
-	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	train.load_labels("data/fashion_mnist_train_labels.csv");
+	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	//train.load_labels("data/fashion_mnist_train_labels.csv");
 	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
-	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
-	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
+	train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
+	train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
 	Dataset validation = train.separate_validation_dataset(0.2);
 
@@ -1041,14 +1048,14 @@ int main() {
 	Layer layer2(32, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
-	SGD sgd(learning_rate, 0.9, true);
+	SGD sgd(learning_rate, 0.95, true);
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(5, &train_loader, &validation_loader);
+	nn.train(6, &train_loader, &validation_loader);
 
 	//Dataset test;
 	//test.load_data("data/fashion_mnist_test_vectors.csv", true);
