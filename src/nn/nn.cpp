@@ -33,53 +33,6 @@ public:
 		y_rows = y_inp.size();
 	}
 
-	void load_data(std::string fpath, bool normalize = true) {
-		std::ifstream myfile(fpath);
-
-		if (myfile.is_open()) {
-
-			std::vector<std::vector<double>> res_mat;
-			std::string line;
-
-			double element;
-			char delimiter;
-
-			int rowcount = 0;
-			int normalizer = 1;
-			// MinMax normalization for ReLU activation function
-			if (normalize) normalizer = 255;
-
-			// TODO probably there is an easier and faster way in C++
-			while (std::getline(myfile, line))
-			{
-				std::stringstream sline(line);
-				std::vector<double> int_vec;
-
-				while (sline >> element >> delimiter || sline >> element) { // the "|| sline >> element" is not working - not returning anything
-					int_vec.push_back(element / normalizer);
-				}
-				sline >> element; // TODO make the while condition work properly and remove this
-				int_vec.push_back(element / normalizer); // TODO make the while condition work properly and remove this
-				res_mat.push_back(int_vec);
-				rowcount++;
-				if (rowcount % 1000 == 0) std::cout << rowcount << std::endl;
-			}
-
-			// save the data and dimensions of the dataset
-			if (rowcount > 0) {
-				X_rows = rowcount;
-				X_cols = res_mat.at(rowcount - 1).size();
-				X = res_mat;
-				std::cout << "Dataset successfully loaded. Shape: (" << X_rows << " x " << X_cols << ")." << std::endl;
-			}
-			else {
-				std::cerr << "No valid data found in the file.\n";
-			}
-		}
-		else {
-			std::cerr << "ERROR: Cannot open the file.\n";
-		}
-	}
 
 	void load_mnist_data(std::string fpath, bool normalize = true) {
 		std::ifstream myfile(fpath);
@@ -179,7 +132,6 @@ public:
 	int get_X_rows() {
 		return X_rows;
 	}
-
 	int get_X_cols() {
 		return X_cols;
 	}
@@ -244,28 +196,6 @@ public:
 		y_rows = y.size();
 
 		return validation_dataset;
-	}
-
-	std::vector<Dataset> split_dataset(std::vector<double> proportions, bool random = true) {
-		double sum_prop = 0;
-		for (size_t i = 0; i < proportions.size(); i++) {
-			sum_prop += proportions[i];
-		}
-		if (sum_prop != 1) {
-			std::cerr << "ERROR: Proportions must sum to 1.\n";
-			return { Dataset() };
-		}
-		std::vector<int> split_positions(1);
-		for (size_t i = 0; i < proportions.size(); i++) {
-			split_positions.push_back(X_rows * proportions[i] + split_positions[i]);
-		}
-		if (random)	shuffle();
-
-		std::vector<Dataset> datasets(proportions.size());
-		for (size_t i = 0; i < split_positions.size() - 1; i++) {
-			datasets[i] = Dataset(get_subset_X(split_positions[i], split_positions[i + 1]), get_subset_y(split_positions[i], split_positions[i + 1]));
-		}
-		return datasets;
 	}
 
 	void set_y(std::vector<double> y_pred) {
@@ -360,7 +290,6 @@ public:
 
 	void print_matrix() {
 		if (!values.empty() && !values.at(0).empty()) {
-
 			for (int i = 0; i < shape[0]; i++) {
 				std::cout << "[ ";
 				for (int j = 0; j < shape[1]; j++) {
@@ -388,6 +317,9 @@ public:
 	std::vector<std::vector<double>> get_values() {
 		return values;
 	}
+	void set_values(std::vector<std::vector<double>> in_values) {
+		values = in_values;
+	}
 	void set_value(int nrow, int ncol, double value) {
 		values[nrow][ncol] = value;
 	}
@@ -414,8 +346,7 @@ public:
 		}
 		else {
 			std::cerr << "Nonconformable dimensions: mat1 is (x " << ncols1 << " ) but mat2 is (" << nrows2 << " y).\n";
-			Matrix result;
-			return result;
+			return Matrix();
 		}
 	}
 
@@ -426,23 +357,6 @@ public:
 			for (int i = 0; i < nrow; i++) {
 				for (int j = 0; j < ncol; j++) {
 					cachedValues[i][j] = values[i][j] + second.values[i][j];
-				}
-			}
-			return Matrix(cachedValues);
-		}
-		else {
-			std::cerr << "Nonconformable dimensions, both dimensions must match.\n";
-			return Matrix();
-		}
-	}
-
-	Matrix substract(Matrix second) {
-		if (get_shape() == second.get_shape()) {
-			int nrow = get_shape()[0];
-			int ncol = get_shape()[1];
-			for (int i = 0; i < nrow; i++) {
-				for (int j = 0; j < ncol; j++) {
-					cachedValues[i][j] = values[i][j] - second.values[i][j];
 				}
 			}
 			return Matrix(cachedValues);
@@ -468,15 +382,8 @@ public:
 				}
 			}
 		}
-		else if (multiplier.get_shape()[1] == 1) {
-			for (size_t i = 0; i < shape[0]; i++) {
-				for (size_t j = 0; j < shape[1]; j++) {
-					cachedValues[i][j] = values[i][j] * multiplier.get_values()[0][0];
-				}
-			}
-		}
 		else {
-			std::cerr << "Nonconformable dimensions, multiplier must be either {scalar} or vector of shape (1, matrix.ncol).\n";
+			std::cerr << "Nonconformable dimensions, multiplier must be either vector of shape (1, matrix.ncol) or matrix with matching dimensions.\n";
 		}
 		return Matrix(cachedValues);
 	}
@@ -489,44 +396,6 @@ public:
 			}
 		}
 		return Matrix(cachedValues);
-	}
-
-	Matrix add_scalar(double add) {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				cachedValues[i][j] = values[i][j] + add;
-			}
-		}
-		return Matrix(cachedValues);
-	}
-
-	Matrix square_elements() {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				cachedValues[i][j] = pow(values[i][j], 2);
-			}
-		}
-		return Matrix(cachedValues);
-	}
-
-	Matrix root_elements() {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				cachedValues[i][j] = sqrt(values[i][j]);
-			}
-		}
-		return Matrix(cachedValues);
-	}
-
-	void transpose() {
-		std::vector<std::vector<double>> transposed(shape[1], std::vector<double>(shape[0]));
-		for (size_t i = 0; i < transposed.size(); i++) {
-			for (size_t j = 0; j < transposed[i].size(); j++) {
-				transposed[i][j] = values[j][i];
-			}
-		}
-		values = transposed;
-		shape = { shape[1], shape[0] };
 	}
 
 	Matrix get_transposed() {
@@ -545,13 +414,6 @@ public:
 		for (size_t i = 0; i < shape[0]; i++)
 			for (size_t j = 0; j < shape[1]; j++)
 				sums[j] += values[i][j];
-		return Matrix({ sums });
-	}
-
-	Matrix row_sums() {
-		std::vector<double> sums(shape[0]);
-		for (size_t i = 0; i < shape[0]; i++)
-			sums[i] = std::accumulate(values[i].begin(), values[i].end(), 0);
 		return Matrix({ sums });
 	}
 
@@ -659,22 +521,15 @@ private:
 
 class Layer {
 public:
-	Layer(int n_inputs, int n_outputs, double dropout = 0.0) {
+	Layer(int n_inputs, int n_outputs, double dropout, double weight_decay) {
+		// He weights initialization
 		double std = sqrt(2.0 / n_inputs);
 		w0 = Matrix(1, n_outputs, 0, std);
 		weights = Matrix(n_inputs, n_outputs, 0, std);
 		weightsShape = weights.get_shape();
 		w0Shape = w0.get_shape();
 		this->dropout = dropout;
-		dropoutMask = Matrix(1, n_outputs);
-	}
-
-	Layer(int n_inputs, int n_outputs, double mean, double std, double dropout = 0.0) {
-		w0 = Matrix(1, n_outputs, mean, std);
-		weights = Matrix(n_inputs, n_outputs, mean, std);
-		weightsShape = weights.get_shape();
-		w0Shape = w0.get_shape();
-		this->dropout = dropout;
+		weightDecay = weight_decay;
 		dropoutMask = Matrix(1, n_outputs);
 	}
 
@@ -701,7 +556,10 @@ public:
 
 	Matrix get_weights() { return weights; }
 
-	void set_weights(Matrix new_weights) { weights = new_weights; }
+	void set_weights(Matrix new_weights) {
+		if (weightDecay == 0.0) weights = new_weights;
+		else weights = new_weights.scalar_mul(1 - weightDecay);
+	}
 
 	std::vector<unsigned int> get_weights_shape() { return weightsShape; }
 
@@ -723,6 +581,7 @@ private:
 	std::vector<unsigned int> w0Shape;
 	double dropout;
 	Matrix dropoutMask;
+	double weightDecay;
 };
 
 
@@ -775,33 +634,6 @@ private:
 		return result;
 	}
 
-};
-
-class Logistic :public ActivationFunction {
-private:
-	std::vector<double> evaluate_layer(std::vector<double> inner_potentials) {
-		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
-		for (size_t i = 0; i < inner_potentials.size(); i++) {
-			result[i] = evaluate(inner_potentials[i]);
-		}
-		return result;
-	}
-
-	double evaluate(double inner_potential) {
-		return 1 / (1 + exp(-inner_potential));
-	}
-
-	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
-		std::vector<double> result(neuron_outputs.size(), 0); // ALLOC - I know the dimensions on init of NN
-		for (size_t i = 0; i < neuron_outputs.size(); i++) {
-			result[i] = derive(neuron_outputs[i]);
-		}
-		return result;
-	}
-
-	double derive(double neuron_output) {
-		return evaluate(neuron_output) * (1 - evaluate(neuron_output));
-	}
 };
 
 class Softmax :public ActivationFunction {
@@ -1197,9 +1029,9 @@ int main() {
 	DataLoader train_loader(&train, batch_size);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 128);
-	Layer layer1(128, 32, 0.2);
-	Layer layer2(32, CLASSES);
+	Layer layer0(train.get_X_cols(), 128, 0.15, 0.00001);
+	Layer layer1(128, 32, 0.0, 0.0);
+	Layer layer2(32, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
 	SGD sgd(learning_rate, 0.5);
