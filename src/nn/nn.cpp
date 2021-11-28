@@ -723,6 +723,9 @@ public:
 	void get_ready_for_pass(DataLoader* dataloader) {
 		w0ext = Matrix(dataloader->get_batch_size(), w0Shape[1]);
 	}
+	void get_ready_for_pass(int n_rows) {
+		w0ext = Matrix(n_rows, w0Shape[1]);
+	}
 
 private:
 	Matrix weights;
@@ -1027,6 +1030,9 @@ public:
 		int n_classes = layers[countLayers - 1]->get_weights().get_shape()[1];
 		std::vector<std::vector<double>> one_hot_predictions(n_predictions, std::vector<double>(n_classes));
 
+		for (size_t i = 0; i < countLayers; i++) {
+			layers[i]->get_ready_for_pass(prediction_dataloader->get_n_rows());
+		}
 		// would be nice to pass the whole test dataset at once 
 		// and get rid off this while
 		prediction_dataloader->reset();
@@ -1162,28 +1168,39 @@ private:
 	* @param DataLoader pointing on validation dataset.
 	*/
 	void validate_epoch(DataLoader* validation_dataloader) {
-		validation_dataloader->reset();
+		//validation_dataloader->reset();
+
+		//for (size_t i = 0; i < countLayers; i++) {
+		//	layers[i]->get_ready_for_pass(validation_dataloader);
+		//}
+		//int _iter_in_epoch = 0;
+		//double _epoch_sum_of_average_batch_losses = 0;
+		//double _epoch_sum_of_average_batch_metric = 0;
+		//// would be nice to pass the whole validation dataset at once 
+		//// and get rid off this while
+		//// but the matrices would be probably too big
+		//while (!validation_dataloader->is_exhausted()) {
+		//	Batch batch = validation_dataloader->get_sample(); // ALLOC ?
+
+		//	forward_pass(batch, false);
+
+		//	_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, neuronsOutputs[countLayers]);
+		//	_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
+		//	_iter_in_epoch++;
+		//}
+		//validationLossInEpoch.push_back(_epoch_sum_of_average_batch_losses / _iter_in_epoch);
+		//validationMetricInEpoch.push_back(_epoch_sum_of_average_batch_metric / _iter_in_epoch);
+
+
 
 		for (size_t i = 0; i < countLayers; i++) {
-			layers[i]->get_ready_for_pass(validation_dataloader);
+			layers[i]->get_ready_for_pass(validation_dataloader->get_n_rows());
 		}
-		int _iter_in_epoch = 0;
-		double _epoch_sum_of_average_batch_losses = 0;
-		double _epoch_sum_of_average_batch_metric = 0;
-		// would be nice to pass the whole validation dataset at once 
-		// and get rid off this while
-		// but the matrices would be probably too big
-		while (!validation_dataloader->is_exhausted()) {
-			Batch batch = validation_dataloader->get_sample(); // ALLOC ?
+		Batch batch = validation_dataloader->get_all_samples();
+		forward_pass(batch, false);
 
-			forward_pass(batch, false);
-
-			_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, neuronsOutputs[countLayers]);
-			_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
-			_iter_in_epoch++;
-		}
-		validationLossInEpoch.push_back(_epoch_sum_of_average_batch_losses / _iter_in_epoch);
-		validationMetricInEpoch.push_back(_epoch_sum_of_average_batch_metric / _iter_in_epoch);
+		validationLossInEpoch.push_back(lossFunction->calculate_mean_batch_loss(batch.Y, neuronsOutputs[countLayers]));
+		validationMetricInEpoch.push_back(metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions()));
 	}
 };
 
@@ -1207,9 +1224,9 @@ int main() {
 	DataLoader train_loader(&train, batch_size);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 256, 0.0, 0.01);
-	Layer layer1(256, 64, 0.2, 0.01);
-	Layer layer2(64, CLASSES, 0.0 , 0.0);
+	Layer layer0(train.get_X_cols(), 128, 0.0, 0.0);
+	Layer layer1(128, 32, 0.2, 0.0);
+	Layer layer2(32, CLASSES, 0.0 , 0.0);
 	ReLU relu;
 	Softmax softmax;
 	SGD sgd(learning_rate, 0.5);
