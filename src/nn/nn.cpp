@@ -1031,12 +1031,12 @@ int main() {
 	double learning_rate = 0.0005;
 
 	Dataset train;
-	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	//train.load_labels("data/fashion_mnist_train_labels.csv");
+	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	train.load_labels("data/fashion_mnist_train_labels.csv");
 	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
-	train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
-	train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
+	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
+	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
 	Dataset validation = train.separate_validation_dataset(0.2);
 
