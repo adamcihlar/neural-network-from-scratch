@@ -719,10 +719,16 @@ private:
 
 class SGD :public Optimizer {
 public:
-	SGD(double learning_rate, double momentum_alpha = 0.0) : learningRate(learning_rate), momentumAlpha(momentum_alpha) {}
+	SGD(double learning_rate, double momentum_alpha = 0.0, bool nesterov = false) : learningRate(learning_rate), momentumAlpha(momentum_alpha), nesterovMomentum(nesterov) {}
 
 	std::vector<Matrix> calculate_bias_update(std::vector<Matrix> bias_grad) {
-		if (momentumAlpha == 0.0) {
+		if (momentumAlpha != 0.0 && nesterovMomentum) {
+			for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
+				previousBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate).sum(previousBiasUpdate[i].scalar_mul(momentumAlpha));
+				currentBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate).sum(previousBiasUpdate[i].scalar_mul(momentumAlpha));
+			}
+		return currentBiasUpdate;
+		} else if (momentumAlpha == 0.0) {
 			for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
 				currentBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate);
 			}
@@ -765,6 +771,7 @@ public:
 private:
 	double learningRate;
 	double momentumAlpha;
+	bool nesterovMomentum;
 	std::vector<Matrix> currentBiasUpdate;
 	std::vector<Matrix> currentWeightsUpdate;
 	std::vector<Matrix> previousBiasUpdate;
@@ -1013,28 +1020,28 @@ int main() {
 
 	auto start = std::chrono::high_resolution_clock::now();
 
-	int batch_size = 16;
+	int batch_size = 64;
 	double learning_rate = 0.01;
 
 	Dataset train;
-	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	//train.load_labels("data/fashion_mnist_train_labels.csv");
+	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	train.load_labels("data/fashion_mnist_train_labels.csv");
 	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
-	train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
-	train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
+	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
+	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
 	Dataset validation = train.separate_validation_dataset(0.2);
 
 	DataLoader train_loader(&train, batch_size);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 128, 0.15, 0.00001);
-	Layer layer1(128, 32, 0.0, 0.0);
+	Layer layer0(train.get_X_cols(), 128, 0.15, 0.0001);
+	Layer layer1(128, 32, 0.0, 0.00001);
 	Layer layer2(32, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
-	SGD sgd(learning_rate, 0.5);
+	SGD sgd(learning_rate, 0.9, true);
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
