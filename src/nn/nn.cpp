@@ -1207,9 +1207,9 @@ int main() {
 	DataLoader train_loader(&train, batch_size);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 128, 0.0, 0.01);
-	Layer layer1(128, 32, 0.2, 0.01);
-	Layer layer2(32, CLASSES, 0.0 , 0.0);
+	Layer layer0(train.get_X_cols(), 256, 0.0, 0.01);
+	Layer layer1(256, 64, 0.2, 0.01);
+	Layer layer2(64, CLASSES, 0.0 , 0.0);
 	ReLU relu;
 	Softmax softmax;
 	SGD sgd(learning_rate, 0.5);
