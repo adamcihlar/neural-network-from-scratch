@@ -659,22 +659,25 @@ private:
 
 class Layer {
 public:
-	Layer(int n_inputs, int n_outputs, double dropout = 0.0) {
+	Layer(int n_inputs, int n_outputs, double dropout, double weight_decay) {
+		// He weights initialization
 		double std = sqrt(2.0 / n_inputs);
 		w0 = Matrix(1, n_outputs, 0, std);
 		weights = Matrix(n_inputs, n_outputs, 0, std);
 		weightsShape = weights.get_shape();
 		w0Shape = w0.get_shape();
 		this->dropout = dropout;
+		this->weightDecay = weight_decay;
 		dropoutMask = Matrix(1, n_outputs);
 	}
 
-	Layer(int n_inputs, int n_outputs, double mean, double std, double dropout = 0.0) {
+	Layer(int n_inputs, int n_outputs, double mean, double std, double dropout, double weight_decay) {
 		w0 = Matrix(1, n_outputs, mean, std);
 		weights = Matrix(n_inputs, n_outputs, mean, std);
 		weightsShape = weights.get_shape();
 		w0Shape = w0.get_shape();
 		this->dropout = dropout;
+		this->weightDecay = weight_decay;
 		dropoutMask = Matrix(1, n_outputs);
 	}
 
@@ -701,13 +704,19 @@ public:
 
 	Matrix get_weights() { return weights; }
 
-	void set_weights(Matrix new_weights) { weights = new_weights; }
+	void set_weights(Matrix new_weights) {
+		if (weightDecay == 0.0) weights = new_weights;
+		else weights = new_weights.scalar_mul(1-weightDecay); 
+	}
 
 	std::vector<unsigned int> get_weights_shape() { return weightsShape; }
 
 	Matrix get_bias() { return w0; }
 
-	void set_bias(Matrix new_weights) { w0 = new_weights; }
+	void set_bias(Matrix new_weights) {
+		if (weightDecay == 0.0) w0 = new_weights;
+		else w0 = new_weights.scalar_mul(1-weightDecay); 
+	}
 
 	std::vector<unsigned int> get_bias_shape() { return w0Shape; }
 
@@ -723,6 +732,7 @@ private:
 	std::vector<unsigned int> w0Shape;
 	double dropout;
 	Matrix dropoutMask;
+	double weightDecay;
 };
 
 
@@ -1197,9 +1207,9 @@ int main() {
 	DataLoader train_loader(&train, batch_size);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 128);
-	Layer layer1(128, 32, 0.2);
-	Layer layer2(32, CLASSES);
+	Layer layer0(train.get_X_cols(), 128, 0.0, 0.01);
+	Layer layer1(128, 32, 0.2, 0.01);
+	Layer layer2(32, CLASSES, 0.0 , 0.0);
 	ReLU relu;
 	Softmax softmax;
 	SGD sgd(learning_rate, 0.5);
