@@ -25,12 +25,12 @@ public:
 	Dataset(
 		std::vector<std::vector<double>> X_inp = { {} },
 		std::vector<double> y_inp = {}
-	) {
-		X = X_inp;
-		y = y_inp;
+	) : X(X_inp),
+		y(y_inp),
+		X_cols(X_inp[0].size()),
+		y_rows(y_inp.size())
+	{
 		if (X_inp[0].size() == 0) X_rows = 0; else X_rows = X_inp.size();
-		X_cols = X_inp[0].size();
-		y_rows = y_inp.size();
 	}
 
 
@@ -221,13 +221,13 @@ class RandomGenerator
 class NormalRandomGenerator : public RandomGenerator
 {
 public:
-	NormalRandomGenerator(double mean = 0, double std = 1) {
+	NormalRandomGenerator(double mean = 0, double std = 1) : mean(mean), std(std) {
 		std::random_device rd;
 
 		distribution = std::normal_distribution<double>(mean, std);
 		gen = std::mt19937(rd());
-		this->mean = mean;
-		this->std = std;
+		//this->mean = mean;
+		//this->std = std;
 	}
 
 	double get_sample() {
@@ -1031,12 +1031,12 @@ int main() {
 	double learning_rate = 0.0005;
 
 	Dataset train;
-	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	train.load_labels("data/fashion_mnist_train_labels.csv");
+	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	//train.load_labels("data/fashion_mnist_train_labels.csv");
 	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
-	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
-	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
+	train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
+	train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
 	Dataset validation = train.separate_validation_dataset(0.2);
 
