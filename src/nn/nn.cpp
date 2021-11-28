@@ -648,6 +648,7 @@ private:
 	bool Exhausted;
 
 	std::vector<std::vector<double>> one_hot_encode(std::vector<double> labels) {
+		if (labels.empty()) return { {} };
 		std::vector<std::vector<double>> one_hot_labels(labels.size(), std::vector<double>(CLASSES));
 		for (size_t i = 0; i < labels.size(); i++) {
 			one_hot_labels[i][labels[i]] = 1;
@@ -1030,27 +1031,31 @@ public:
 		int n_classes = layers[countLayers - 1]->get_weights().get_shape()[1];
 		std::vector<std::vector<double>> one_hot_predictions(n_predictions, std::vector<double>(n_classes));
 
+		//for (size_t i = 0; i < countLayers; i++) {
+		//	layers[i]->get_ready_for_pass(prediction_dataloader);
+		//}
+		//// would be nice to pass the whole test dataset at once 
+		//// and get rid off this while
+		//prediction_dataloader->reset();
+
+		//for (size_t i = 0; i < n_predictions; i++) {
+		//	Batch batch = prediction_dataloader->get_one_sample();
+		//	forward_pass(batch, false);
+		//	one_hot_predictions[i] = batch_output_probabilities_to_predictions().get_values()[0];
+		//}
+
+		//std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
+		//prediction_dataloader->assign_predicted_labels(predictions);
+
+		
 		for (size_t i = 0; i < countLayers; i++) {
 			layers[i]->get_ready_for_pass(prediction_dataloader->get_n_rows());
 		}
-		// would be nice to pass the whole test dataset at once 
-		// and get rid off this while
-		prediction_dataloader->reset();
-
-		for (size_t i = 0; i < n_predictions; i++) {
-			Batch batch = prediction_dataloader->get_one_sample();
-			forward_pass(batch, false);
-			one_hot_predictions[i] = batch_output_probabilities_to_predictions().get_values()[0];
-		}
-
+		Batch batch = prediction_dataloader->get_all_samples();
+		forward_pass(batch, false);
+		one_hot_predictions = batch_output_probabilities_to_predictions().get_values();
 		std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
 		prediction_dataloader->assign_predicted_labels(predictions);
-
-		//Batch batch = prediction_dataloader->get_all_samples();
-		//forward_pass(batch);
-		//one_hot_predictions = batch_output_probabilities_to_predictions().get_values();
-		//std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
-		//prediction_dataloader->assign_predicted_labels(predictions);
 	}
 
 
@@ -1208,7 +1213,7 @@ int main() {
 
 	auto start = std::chrono::high_resolution_clock::now();
 
-	int batch_size = 64;
+	int batch_size = 16;
 	double learning_rate = 0.01;
 
 	Dataset train;
@@ -1224,32 +1229,33 @@ int main() {
 	DataLoader train_loader(&train, batch_size);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 128, 0.0, 0.0);
-	Layer layer1(128, 32, 0.2, 0.0);
-	Layer layer2(32, CLASSES, 0.0 , 0.0);
+	Layer layer0(train.get_X_cols(), 256, 0.0, 0.0);
+	Layer layer1(256, 64, 0.2, 0.0);
+	Layer layer2(64, CLASSES, 0.0 , 0.0);
 	ReLU relu;
 	Softmax softmax;
-	SGD sgd(learning_rate, 0.5);
+	SGD sgd(learning_rate, 0.8);
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(5, &train_loader, &validation_loader);
+	nn.train(2, &train_loader, &validation_loader);
 
 	Dataset test;
 	test.load_data("data/fashion_mnist_test_vectors.csv", true);
+	//test.load_data("../../data/fashion_mnist_test_vectors.csv", true);
 	DataLoader test_loader(&test, 200);
 
 	nn.predict(&test_loader);
 
-	test.save_labels("data/actualPredictionsExample");
+	//test.save_labels("data/actualPredictionsExample");
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
-	std::cout << duration.count() << std::endl;
+	std::cout << duration.count()/1000 << std::endl;
 
 }
 
