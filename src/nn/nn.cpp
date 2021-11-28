@@ -226,8 +226,6 @@ public:
 
 		distribution = std::normal_distribution<double>(mean, std);
 		gen = std::mt19937(rd());
-		//this->mean = mean;
-		//this->std = std;
 	}
 
 	double get_sample() {
@@ -242,11 +240,10 @@ private:
 class BernoulliGenerator : public RandomGenerator
 {
 public:
-	BernoulliGenerator(double p = 0.5) {
+	BernoulliGenerator(double p = 0.5) : p(p) {
 		std::random_device rd;
 		gen = std::mt19937(rd());
 		distribution = std::bernoulli_distribution(p);
-		this->p = p;
 	}
 
 	double get_sample() {
@@ -327,18 +324,18 @@ public:
 		values[nrow] = in_values;
 	}
 
-	Matrix dot(Matrix second) {
+	Matrix dot(Matrix* second) {
 		int ncols1 = get_shape()[1];
-		int nrows2 = second.get_shape()[0];
+		int nrows2 = second->get_shape()[0];
 		if (ncols1 == nrows2) {
 			int nrows1 = get_shape()[0];
-			int ncols2 = second.get_shape()[1];
+			int ncols2 = second->get_shape()[1];
 			Matrix result(nrows1, ncols2);
 
 			for (int i = 0; i < nrows1; i++) {
 				for (int k = 0; k < nrows2; k++) {
 					for (int j = 0; j < ncols2; j++) {
-						result.values[i][j] += values[i][k] * second.values[k][j];
+						result.values[i][j] += values[i][k] * second->values[k][j];
 					}
 				}
 			}
@@ -350,6 +347,22 @@ public:
 		}
 	}
 
+	Matrix sum(Matrix* second) {
+		if (get_shape() == second->get_shape()) {
+			int nrow = get_shape()[0];
+			int ncol = get_shape()[1];
+			for (int i = 0; i < nrow; i++) {
+				for (int j = 0; j < ncol; j++) {
+					cachedValues[i][j] = values[i][j] + second->values[i][j];
+				}
+			}
+			return Matrix(cachedValues);
+		}
+		else {
+			std::cerr << "Nonconformable dimensions, both dimensions must match.\n";
+			return Matrix();
+		}
+	}
 	Matrix sum(Matrix second) {
 		if (get_shape() == second.get_shape()) {
 			int nrow = get_shape()[0];
@@ -365,6 +378,27 @@ public:
 			std::cerr << "Nonconformable dimensions, both dimensions must match.\n";
 			return Matrix();
 		}
+	}
+
+	Matrix multiply(Matrix* multiplier) {
+		if (multiplier->get_shape()[0] == 1 && shape[1] == multiplier->get_shape()[1]) {
+			for (size_t i = 0; i < shape[0]; i++) {
+				for (size_t j = 0; j < shape[1]; j++) {
+					cachedValues[i][j] = values[i][j] * multiplier->get_values()[0][j];
+				}
+			}
+		}
+		else if (multiplier->get_shape() == shape) {
+			for (size_t i = 0; i < shape[0]; i++) {
+				for (size_t j = 0; j < shape[1]; j++) {
+					cachedValues[i][j] = values[i][j] * multiplier->get_values()[i][j];
+				}
+			}
+		}
+		else {
+			std::cerr << "Nonconformable dimensions, multiplier must be either vector of shape (1, matrix.ncol) or matrix with matching dimensions.\n";
+		}
+		return Matrix(cachedValues);
 	}
 
 	Matrix multiply(Matrix multiplier) {
@@ -387,7 +421,6 @@ public:
 		}
 		return Matrix(cachedValues);
 	}
-
 
 	Matrix scalar_mul(double multiplier) {
 		for (size_t i = 0; i < shape[0]; i++) {
@@ -432,41 +465,46 @@ struct Batch {
 class DataLoader
 {
 public:
-	DataLoader(Dataset* dataset, int batch_size = 32) {
-		BatchSize = batch_size;
-		SourceDataset = dataset;
-		RowsTotal = dataset->get_X_rows();
-		RowsGiven = 0;
-		Exhausted = (SourceDataset->get_X_rows() <= RowsGiven);
-	}
+	DataLoader(Dataset* dataset, int batch_size = 32) :
+		batchSize(batch_size),
+		sourceDataset(dataset),
+		rowsTotal(dataset->get_X_rows()),
+		rowsGiven(0),
+		exhausted((sourceDataset->get_X_rows() <= rowsGiven)),
+		X_sample(Matrix(batch_size, dataset->get_X_cols())),
+		y_sample(Matrix(batch_size, 1))
+	{}
 
 	Batch get_sample() {
-		if (Exhausted) return { {} };
-		RowsGiven += BatchSize;
-		Exhausted = (SourceDataset->get_X_rows() <= RowsGiven);
+		if (exhausted) return { {} };
+		rowsGiven += batchSize;
+		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 
-		Matrix X_mat(SourceDataset->get_subset_X(RowsGiven - BatchSize, RowsGiven)); // ALLOC - dims known on init of DataLoader
-		Matrix Y_mat(one_hot_encode(SourceDataset->get_subset_y(RowsGiven - BatchSize, RowsGiven))); // ALLOC - dims known on init of DataLoader
+		X_sample.set_values(sourceDataset->get_subset_X(rowsGiven - batchSize, rowsGiven));
+		y_sample.set_values((one_hot_encode(sourceDataset->get_subset_y(rowsGiven - batchSize, rowsGiven))));
+
+		Matrix X_mat(sourceDataset->get_subset_X(rowsGiven - batchSize, rowsGiven)); // ALLOC - dims known on init of DataLoader
+		Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y(rowsGiven - batchSize, rowsGiven))); // ALLOC - dims known on init of DataLoader
 
 		Batch sample = { X_mat, Y_mat };
 		return sample;
 	}
 
 	Batch get_one_sample() {
-		if (Exhausted) return { {} };
-		RowsGiven += 1;
-		Exhausted = (SourceDataset->get_X_rows() <= RowsGiven);
+		if (exhausted) return { {} };
+		rowsGiven += 1;
+		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 
-		Matrix X_mat(SourceDataset->get_subset_X(RowsGiven - 1, RowsGiven)); // ALLOC - dims known on init of DataLoader
-		Matrix Y_mat(one_hot_encode(SourceDataset->get_subset_y(RowsGiven - 1, RowsGiven))); // ALLOC - dims known on init of DataLoader
+		Matrix X_mat(sourceDataset->get_subset_X(rowsGiven - 1, rowsGiven)); // ALLOC - dims known on init of DataLoader
+		Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y(rowsGiven - 1, rowsGiven))); // ALLOC - dims known on init of DataLoader
 
 		Batch sample = { X_mat, Y_mat };
 		return sample;
 	}
 
 	Batch get_all_samples() {
-		Matrix X_mat(SourceDataset->get_subset_X()); // ALLOC - dims known on init of DataLoader
-		Matrix Y_mat(one_hot_encode(SourceDataset->get_subset_y())); // ALLOC - dims known on init of DataLoader
+		Matrix X_mat(sourceDataset->get_subset_X()); // ALLOC - dims known on init of DataLoader
+		Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y())); // ALLOC - dims known on init of DataLoader
 
 		Batch sample = { X_mat, Y_mat };
 		return sample;
@@ -482,32 +520,34 @@ public:
 	}
 
 	void assign_predicted_labels(std::vector<double> y_pred) {
-		SourceDataset->set_y(y_pred);
+		sourceDataset->set_y(y_pred);
 	}
 
 	bool is_exhausted() {
-		return Exhausted;
+		return exhausted;
 	}
 	void reset() {
-		RowsGiven = 0;
-		Exhausted = (SourceDataset->get_X_rows() <= RowsGiven);
+		rowsGiven = 0;
+		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 	}
 	void shuffle_dataset() {
-		SourceDataset->shuffle();
+		sourceDataset->shuffle();
 	}
 	int get_n_rows() {
-		return RowsTotal;
+		return rowsTotal;
 	}
 	int get_batch_size() {
-		return BatchSize;
+		return batchSize;
 	}
 
 private:
-	Dataset* SourceDataset;
-	int BatchSize;
-	int RowsGiven;
-	int RowsTotal;
-	bool Exhausted;
+	Dataset* sourceDataset;
+	int batchSize;
+	int rowsGiven;
+	int rowsTotal;
+	bool exhausted;
+	Matrix X_sample;
+	Matrix y_sample;
 
 	std::vector<std::vector<double>> one_hot_encode(std::vector<double> labels) {
 		std::vector<std::vector<double>> one_hot_labels(labels.size(), std::vector<double>(CLASSES));
@@ -521,17 +561,15 @@ private:
 
 class Layer {
 public:
-	Layer(int n_inputs, int n_outputs, double dropout, double weight_decay) {
+	Layer(int n_inputs, int n_outputs, double dropout, double weight_decay) : 
 		// He weights initialization
-		double std = sqrt(2.0 / n_inputs);
-		w0 = Matrix(1, n_outputs, 0, std);
-		weights = Matrix(n_inputs, n_outputs, 0, std);
-		weightsShape = weights.get_shape();
-		w0Shape = w0.get_shape();
-		this->dropout = dropout;
-		weightDecay = weight_decay;
-		dropoutMask = Matrix(1, n_outputs);
-	}
+		w0(Matrix(1, n_outputs, 0, sqrt(2.0 / n_inputs))),
+		weights(Matrix(n_inputs, n_outputs, 0, sqrt(2.0 / n_inputs))),
+		weightsShape(weights.get_shape()),
+		w0Shape(w0.get_shape()),
+		dropout(dropout),
+		weightDecay(weight_decay),
+		dropoutMask(Matrix(1, n_outputs)) {}
 
 	Matrix pass(Matrix inputs, bool dropout_switch_on) {
 		int inputs_nrow = inputs.get_shape()[0];
@@ -547,10 +585,10 @@ public:
 			for (size_t i = 0; i < weightsShape[1]; i++) {
 				dropoutMask.set_value(0, i, b_rand.get_sample() / (1 - dropout));
 			}
-			return Matrix(inputs.dot(weights).sum(w0ext).multiply(dropoutMask)); // ALLOC - dims known when calling nn.train / nn.predict
+			return Matrix(inputs.dot(&weights).sum(&w0ext).multiply(&dropoutMask)); // ALLOC - dims known when calling nn.train / nn.predict
 		}
 		else {
-			return Matrix(inputs.dot(weights).sum(w0ext)); // ALLOC - dims known when calling nn.train / nn.predict
+			return Matrix(inputs.dot(&weights).sum(&w0ext)); // ALLOC - dims known when calling nn.train / nn.predict
 		}
 	}
 
@@ -914,12 +952,12 @@ private:
 
 	void backward_pass(Batch batch) {
 		deltas[countLayers - 1] = activationFunctions[countLayers - 1]->derive_batch(neuronsOutputs[countLayers], batch.Y);
-		weightsGradients[countLayers - 1] = neuronsOutputs[countLayers - 1].get_transposed().dot(deltas[countLayers - 1]);
+		weightsGradients[countLayers - 1] = neuronsOutputs[countLayers - 1].get_transposed().dot(&deltas[countLayers - 1]);
 		biasGradients[countLayers - 1] = deltas[countLayers - 1].col_sums();
 
 		for (int i = countLayers - 2; i >= 0; i--) {
-			deltas[i] = activationFunctions[i]->derive_batch(innerPotentials[i]).multiply(deltas[i + 1].dot(layers[i + 1]->get_weights().get_transposed()));
-			weightsGradients[i] = neuronsOutputs[i].get_transposed().dot(deltas[i]);
+			deltas[i] = activationFunctions[i]->derive_batch(innerPotentials[i]).multiply(deltas[i + 1].dot(&layers[i + 1]->get_weights().get_transposed()));
+			weightsGradients[i] = neuronsOutputs[i].get_transposed().dot(&deltas[i]);
 			biasGradients[i] = deltas[i].col_sums();
 		}
 	}
@@ -930,8 +968,8 @@ private:
 
 	void update_layers(std::vector<Matrix> bias_update, std::vector<Matrix> weights_update) {
 		for (size_t i = 0; i < countLayers; i++) {
-			layers[i]->set_bias(layers[i]->get_bias().sum(bias_update[i]));
-			layers[i]->set_weights(layers[i]->get_weights().sum(weights_update[i]));
+			layers[i]->set_bias(layers[i]->get_bias().sum(&bias_update[i]));
+			layers[i]->set_weights(layers[i]->get_weights().sum(&weights_update[i]));
 		}
 	}
 
