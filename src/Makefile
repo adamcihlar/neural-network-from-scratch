@@ -1,7 +1,7 @@
 all: compile run_nn evaluate
 
 compile:
-	g++  -std=c++11 ./src/nn/nn.cpp -o ./src/nn/nn
+	g++  -std=c++11 ./src/nn/nn.cpp -o ./src/nn/nn -fpermissive
 
 run_nn:
 	./src/nn/nn
