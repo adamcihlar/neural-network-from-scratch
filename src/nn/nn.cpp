@@ -316,6 +316,7 @@ public:
 	}
 	void set_values(std::vector<std::vector<double>> in_values) {
 		values = in_values;
+		shape = { in_values.size(), in_values[0].size() };
 	}
 	void set_value(int nrow, int ncol, double value) {
 		values[nrow][ncol] = value;
@@ -458,7 +459,7 @@ private:
 };
 
 struct Batch {
-	Matrix X, Y;
+	Matrix* X,* Y;
 };
 
 
@@ -483,10 +484,7 @@ public:
 		X_sample.set_values(sourceDataset->get_subset_X(rowsGiven - batchSize, rowsGiven));
 		y_sample.set_values((one_hot_encode(sourceDataset->get_subset_y(rowsGiven - batchSize, rowsGiven))));
 
-		Matrix X_mat(sourceDataset->get_subset_X(rowsGiven - batchSize, rowsGiven)); // ALLOC - dims known on init of DataLoader
-		Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y(rowsGiven - batchSize, rowsGiven))); // ALLOC - dims known on init of DataLoader
-
-		Batch sample = { X_mat, Y_mat };
+		sample = { &X_sample, &y_sample };
 		return sample;
 	}
 
@@ -498,7 +496,7 @@ public:
 		Matrix X_mat(sourceDataset->get_subset_X(rowsGiven - 1, rowsGiven)); // ALLOC - dims known on init of DataLoader
 		Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y(rowsGiven - 1, rowsGiven))); // ALLOC - dims known on init of DataLoader
 
-		Batch sample = { X_mat, Y_mat };
+		Batch sample = { &X_mat, &Y_mat };
 		return sample;
 	}
 
@@ -506,7 +504,7 @@ public:
 		Matrix X_mat(sourceDataset->get_subset_X()); // ALLOC - dims known on init of DataLoader
 		Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y())); // ALLOC - dims known on init of DataLoader
 
-		Batch sample = { X_mat, Y_mat };
+		Batch sample = { &X_mat, &Y_mat };
 		return sample;
 	}
 
@@ -548,6 +546,7 @@ private:
 	bool exhausted;
 	Matrix X_sample;
 	Matrix y_sample;
+	Batch sample;
 
 	std::vector<std::vector<double>> one_hot_encode(std::vector<double> labels) {
 		std::vector<std::vector<double>> one_hot_labels(labels.size(), std::vector<double>(CLASSES));
@@ -571,8 +570,8 @@ public:
 		weightDecay(weight_decay),
 		dropoutMask(Matrix(1, n_outputs)) {}
 
-	Matrix pass(Matrix inputs, bool dropout_switch_on) {
-		int inputs_nrow = inputs.get_shape()[0];
+	Matrix pass(Matrix* inputs, bool dropout_switch_on) {
+		int inputs_nrow = inputs->get_shape()[0];
 		if (inputs_nrow != w0ext.get_shape()[0]) {
 			w0ext = Matrix(inputs_nrow, w0Shape[1]);
 		}
@@ -585,25 +584,25 @@ public:
 			for (size_t i = 0; i < weightsShape[1]; i++) {
 				dropoutMask.set_value(0, i, b_rand.get_sample() / (1 - dropout));
 			}
-			return Matrix(inputs.dot(&weights).sum(&w0ext).multiply(&dropoutMask)); // ALLOC - dims known when calling nn.train / nn.predict
+			return Matrix(inputs->dot(&weights).sum(&w0ext).multiply(&dropoutMask)); // ALLOC - dims known when calling nn.train / nn.predict
 		}
 		else {
-			return Matrix(inputs.dot(&weights).sum(&w0ext)); // ALLOC - dims known when calling nn.train / nn.predict
+			return Matrix(inputs->dot(&weights).sum(&w0ext)); // ALLOC - dims known when calling nn.train / nn.predict
 		}
 	}
 
 	Matrix get_weights() { return weights; }
 
 	void set_weights(Matrix new_weights) {
-		if (weightDecay == 0.0) weights = new_weights;
-		else weights = new_weights.scalar_mul(1 - weightDecay);
+		if (weightDecay == 0.0) weights.set_values(new_weights.get_values());
+		else weights.set_values(new_weights.scalar_mul(1 - weightDecay).get_values());
 	}
 
 	std::vector<unsigned int> get_weights_shape() { return weightsShape; }
 
 	Matrix get_bias() { return w0; }
 
-	void set_bias(Matrix new_weights) { w0 = new_weights; }
+	void set_bias(Matrix new_weights) { w0.set_values(new_weights.get_values()); }
 
 	std::vector<unsigned int> get_bias_shape() { return w0Shape; }
 
@@ -625,24 +624,24 @@ private:
 
 class ActivationFunction {
 public:
-	Matrix evaluate_batch(Matrix batch_inner_potentials) {
-		Matrix result(batch_inner_potentials.get_shape()[0], batch_inner_potentials.get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
-		for (int i = 0; i < batch_inner_potentials.get_shape()[0]; i++) {
-			result.set_row(i, evaluate_layer(batch_inner_potentials.get_values()[i]));
+	Matrix evaluate_batch(Matrix* batch_inner_potentials) {
+		Matrix result(batch_inner_potentials->get_shape()[0], batch_inner_potentials->get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
+		for (int i = 0; i < batch_inner_potentials->get_shape()[0]; i++) {
+			result.set_row(i, evaluate_layer(batch_inner_potentials->get_values()[i]));
 		}
 		return result;
 	}
 
-	Matrix derive_batch(Matrix batch_neuron_outputs, Matrix batch_y_true = Matrix()) {
-		Matrix result(batch_neuron_outputs.get_shape()[0], batch_neuron_outputs.get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
-		if (batch_y_true.get_shape()[1] > 0) {
-			for (size_t i = 0; i < batch_neuron_outputs.get_shape()[0]; i++) {
-				result.set_row(i, derive_layer(batch_neuron_outputs.get_values()[i], batch_y_true.get_values()[i]));
+	Matrix derive_batch(Matrix* batch_neuron_outputs, Matrix* batch_y_true = &Matrix()) {
+		Matrix result(batch_neuron_outputs->get_shape()[0], batch_neuron_outputs->get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
+		if (batch_y_true->get_shape()[1] > 0) {
+			for (size_t i = 0; i < batch_neuron_outputs->get_shape()[0]; i++) {
+				result.set_row(i, derive_layer(batch_neuron_outputs->get_values()[i], batch_y_true->get_values()[i]));
 			}
 		}
 		else {
-			for (size_t i = 0; i < batch_neuron_outputs.get_shape()[0]; i++) {
-				result.set_row(i, derive_layer(batch_neuron_outputs.get_values()[i]));
+			for (size_t i = 0; i < batch_neuron_outputs->get_shape()[0]; i++) {
+				result.set_row(i, derive_layer(batch_neuron_outputs->get_values()[i]));
 			}
 		}
 		return result;
@@ -719,12 +718,12 @@ public:
 		return batch_loss;
 	}
 
-	double calculate_mean_batch_loss(Matrix Y_true, Matrix Y_pred) {
+	double calculate_mean_batch_loss(Matrix* Y_true, Matrix* Y_pred) {
 		batch_loss = 0.0;
-		for (int i = 0; i < Y_true.get_shape()[0]; i++) {
-			batch_loss += calculate_loss(Y_true.get_values()[i], Y_pred.get_values()[i]);
+		for (int i = 0; i < Y_true->get_shape()[0]; i++) {
+			batch_loss += calculate_loss(Y_true->get_values()[i], Y_pred->get_values()[i]);
 		}
-		return batch_loss / Y_true.get_shape()[0];
+		return batch_loss / Y_true->get_shape()[0];
 	}
 
 private:
@@ -825,17 +824,17 @@ private:
 
 class Metric {
 public:
-	virtual double calculate_metric_for_batch(Matrix Y_true, Matrix Y_pred) = 0;
+	virtual double calculate_metric_for_batch(Matrix* Y_true, Matrix* Y_pred) = 0;
 };
 
 class Accuracy :public Metric {
 public:
-	double calculate_metric_for_batch(Matrix Y_true, Matrix Y_pred) {
+	double calculate_metric_for_batch(Matrix* Y_true, Matrix* Y_pred) {
 		count_true_in_batch = 0.0;
-		for (size_t i = 0; i < Y_true.get_shape()[0]; i++) {
-			count_true_in_batch += (Y_true.get_values()[i] == Y_pred.get_values()[i]);
+		for (size_t i = 0; i < Y_true->get_shape()[0]; i++) {
+			count_true_in_batch += (Y_true->get_values()[i] == Y_pred->get_values()[i]);
 		}
-		return count_true_in_batch / Y_true.get_shape()[0];
+		return count_true_in_batch / Y_true->get_shape()[0];
 	}
 
 private:
@@ -869,6 +868,7 @@ public:
 			lossFunction = loss_function;
 			this->metric = metric;
 			epochsDone = 0;
+			oneHotPredictions = Matrix();
 
 			this->optimizer->get_ready_for_optimization(this->layers);
 		}
@@ -908,7 +908,7 @@ public:
 		for (size_t i = 0; i < n_predictions; i++) {
 			Batch batch = prediction_dataloader->get_one_sample();
 			forward_pass(batch, false);
-			one_hot_predictions[i] = batch_output_probabilities_to_predictions().get_values()[0];
+			one_hot_predictions[i] = batch_output_probabilities_to_predictions()->get_values()[0];
 		}
 
 		std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
@@ -931,6 +931,7 @@ private:
 	Metric* metric;
 	std::vector<Matrix> innerPotentials;
 	std::vector<Matrix> neuronsOutputs;
+	Matrix oneHotPredictions;
 	std::vector<Matrix> deltas;
 	std::vector<Matrix> biasGradients;
 	std::vector<Matrix> weightsGradients;
@@ -942,21 +943,22 @@ private:
 	std::vector<double> validationMetricInEpoch;
 
 	void forward_pass(Batch batch, bool dropout_switch_on) {
-		neuronsOutputs[0] = batch.X;
+		neuronsOutputs[0] = (*batch.X);
 		for (size_t i = 0; i < countLayers; i++)
 		{
-			innerPotentials[i] = layers[i]->pass(neuronsOutputs[i], dropout_switch_on);
-			neuronsOutputs[i + 1] = activationFunctions[i]->evaluate_batch(innerPotentials[i]);
+			innerPotentials[i].set_values(layers[i]->pass(&neuronsOutputs[i], dropout_switch_on).get_values());
+			neuronsOutputs[i + 1].set_values(activationFunctions[i]->evaluate_batch(&innerPotentials[i]).get_values());
 		}
 	}
 
 	void backward_pass(Batch batch) {
-		deltas[countLayers - 1] = activationFunctions[countLayers - 1]->derive_batch(neuronsOutputs[countLayers], batch.Y);
+		deltas[countLayers - 1].set_values(activationFunctions[countLayers - 1]->derive_batch(&neuronsOutputs[countLayers], batch.Y).get_values());
+
 		weightsGradients[countLayers - 1] = neuronsOutputs[countLayers - 1].get_transposed().dot(&deltas[countLayers - 1]);
 		biasGradients[countLayers - 1] = deltas[countLayers - 1].col_sums();
 
 		for (int i = countLayers - 2; i >= 0; i--) {
-			deltas[i] = activationFunctions[i]->derive_batch(innerPotentials[i]).multiply(deltas[i + 1].dot(&layers[i + 1]->get_weights().get_transposed()));
+			deltas[i] = activationFunctions[i]->derive_batch(&innerPotentials[i]).multiply(deltas[i + 1].dot(&layers[i + 1]->get_weights().get_transposed()));
 			weightsGradients[i] = neuronsOutputs[i].get_transposed().dot(&deltas[i]);
 			biasGradients[i] = deltas[i].col_sums();
 		}
@@ -973,20 +975,22 @@ private:
 		}
 	}
 
-	Matrix batch_output_probabilities_to_predictions() {
-		std::vector<std::vector<double>> one_hot_predictions(neuronsOutputs[countLayers].get_shape()[0], std::vector<double>(neuronsOutputs[countLayers].get_shape()[1])); // ALLOC - dims known on nn init
-		for (size_t i = 0; i < one_hot_predictions.size(); i++) {
-			double max = 0;
-			int argmax = 0;
-			for (size_t j = 0; j < one_hot_predictions[i].size(); j++) {
+	Matrix* batch_output_probabilities_to_predictions() {
+		oneHotPredictions.set_values(std::vector<std::vector<double>>(neuronsOutputs[countLayers].get_shape()[0], std::vector<double>(neuronsOutputs[countLayers].get_shape()[1])));
+		double max = 0;
+		int argmax = 0;
+		for (size_t i = 0; i < oneHotPredictions.get_shape()[0]; i++) {
+			max = 0;
+			argmax = 0;
+			for (size_t j = 0; j < oneHotPredictions.get_shape()[1]; j++) {
 				if (neuronsOutputs[countLayers].get_values()[i][j] > max) {
 					max = neuronsOutputs[countLayers].get_values()[i][j];
 					argmax = j;
 				}
 			}
-			one_hot_predictions[i][argmax] = 1;
+			oneHotPredictions.set_value(i, argmax, 1);
 		}
-		return Matrix(one_hot_predictions);
+		return &oneHotPredictions;
 	}
 
 	void display_train_metrics_from_last_epoch() {
@@ -998,6 +1002,10 @@ private:
 		std::cout << "Validation metric: " << validationMetricInEpoch[epochsDone - 1] << std::endl;
 	}
 
+	void get_ready(DataLoader* dataloader) {
+		oneHotPredictions = Matrix(dataloader->get_batch_size(), CLASSES);
+	}
+
 	/**
 	* Train one epoch on given dataset.
 	* Updates weights, stores basic info about training from the epoch.
@@ -1007,6 +1015,8 @@ private:
 	void train_epoch(DataLoader* train_dataloader, bool shuffle) {
 		if (shuffle) train_dataloader->shuffle_dataset();
 		train_dataloader->reset();
+
+		get_ready(train_dataloader);
 
 		for (size_t i = 0; i < countLayers; i++) {
 			layers[i]->get_ready_for_pass(train_dataloader);
@@ -1021,7 +1031,7 @@ private:
 			backward_pass(batch);
 			optimize();
 
-			_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, neuronsOutputs[countLayers]);
+			_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, &neuronsOutputs[countLayers]);
 			_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
 			_iter_in_epoch++;
 		}
@@ -1038,6 +1048,8 @@ private:
 	void validate_epoch(DataLoader* validation_dataloader) {
 		validation_dataloader->reset();
 
+		get_ready(validation_dataloader);
+
 		for (size_t i = 0; i < countLayers; i++) {
 			layers[i]->get_ready_for_pass(validation_dataloader);
 		}
@@ -1052,7 +1064,7 @@ private:
 
 			forward_pass(batch, false);
 
-			_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, neuronsOutputs[countLayers]);
+			_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, &neuronsOutputs[countLayers]);
 			_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
 			_iter_in_epoch++;
 		}
@@ -1069,21 +1081,21 @@ int main() {
 	double learning_rate = 0.0005;
 
 	Dataset train;
-	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	//train.load_labels("data/fashion_mnist_train_labels.csv");
+	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	train.load_labels("data/fashion_mnist_train_labels.csv");
 	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
-	train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
-	train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
+	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
+	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
 	Dataset validation = train.separate_validation_dataset(0.2);
 
 	DataLoader train_loader(&train, batch_size);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 128, 0.15, 0.0001);
-	Layer layer1(128, 32, 0.0, 0.00001);
-	Layer layer2(32, CLASSES, 0.0, 0.0);
+	Layer layer0(train.get_X_cols(), 256, 0.15, 0.0001);
+	Layer layer1(256, 64, 0.0, 0.00001);
+	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
 	SGD sgd(learning_rate, 0.95, true);
@@ -1093,15 +1105,17 @@ int main() {
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(6, &train_loader, &validation_loader);
+	nn.train(4, &train_loader, &validation_loader);
 
-	//Dataset test;
-	//test.load_data("data/fashion_mnist_test_vectors.csv", true);
-	//DataLoader test_loader(&test, 200);
+	Dataset test;
+	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
+	DataLoader test_loader(&test, 200);
+	nn.predict(&test_loader);
+	test.save_labels("data/actualTestPredictions");
 
-	//nn.predict(&test_loader);
-
-	//test.save_labels("data/actualPredictionsExample");
+	DataLoader infer_train(&train, 200);
+	nn.predict(&infer_train);
+	train.save_labels("data/trainPredictions");
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
