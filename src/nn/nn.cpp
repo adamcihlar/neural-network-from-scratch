@@ -477,7 +477,7 @@ public:
 	{}
 
 	Batch get_sample() {
-		if (exhausted) return Batch{ {} };
+		if (exhausted) return {};
 		rowsGiven += batchSize;
 		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 
@@ -489,7 +489,7 @@ public:
 	}
 
 	Batch get_one_sample() {
-		if (exhausted) return Batch{ {} };
+		if (exhausted) return {};
 		rowsGiven += 1;
 		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 
