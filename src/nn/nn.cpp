@@ -16,12 +16,23 @@
 #include <algorithm>
 #include <ctime>
 
-// toto tady asi taky nenecham ne?
 int CLASSES = 10;
 
+
+/**
+* Class for loading and saving data (predictions)
+* and returning desired subset of inputs and/or labels.
+* 
+* Also contains method to randomly shuffle itself
+* and method to return a new Dataset with a subset of its data.
+*/
 class Dataset
 {
 public:
+	/**
+	* Initialize Dataset directly with data
+	* Provide both - inputs and labels 
+	*/
 	Dataset(
 		std::vector<std::vector<double>> X_inp = { {} },
 		std::vector<double> y_inp = {}
@@ -33,7 +44,11 @@ public:
 		if (X_inp[0].size() == 0) X_rows = 0; else X_rows = X_inp.size();
 	}
 
-
+	/**
+	* Load inputs and save the dims
+	* Method expects data in "mnist" format - 784 columns
+	* Data minmax normalized by default
+	*/
 	void load_mnist_data(std::string fpath, bool normalize = true) {
 		std::ifstream myfile(fpath);
 
@@ -47,11 +62,10 @@ public:
 
 			int rowcount = 0;
 			int normalizer = 1;
-			// MinMax normalization for ReLU activation function
+
 			if (normalize) normalizer = 255;
 
 			std::vector<double> int_vec(784);
-			// TODO probably there is an easier and faster way in C++
 			while (std::getline(myfile, line))
 			{
 				std::stringstream sline(line);
@@ -71,7 +85,6 @@ public:
 				if (rowcount % 1000 == 0) std::cout << rowcount << std::endl;
 			}
 
-			// save the data and dimensions of the dataset
 			if (rowcount > 0) {
 				X_rows = rowcount;
 				X_cols = res_mat.at(rowcount - 1).size();
@@ -87,6 +100,9 @@ public:
 		}
 	}
 
+	/**
+	* Load labels and save the dims
+	*/
 	void load_labels(std::string fpath) {
 		std::ifstream myfile(fpath);
 
@@ -121,6 +137,9 @@ public:
 
 	}
 
+	/**
+	* Save predicted labels
+	*/
 	void save_labels(std::string fpath) {
 		std::ofstream myfile(fpath);
 		for (size_t i = 0; i < y_rows; i++) {
@@ -136,6 +155,9 @@ public:
 		return X_cols;
 	}
 
+	/**
+	* Returns subset of X vectors between 'from' and 'to' index
+	*/
 	std::vector<std::vector<double>> get_subset_X(int from = 0, int to = -1) {
 		if (to == -1 || to >= X_rows) to = X_rows;
 		if (from < 0) from = 0;
@@ -147,6 +169,9 @@ public:
 		return subset;
 	}
 
+	/**
+	* Returns subset of y vectors between 'from' and 'to' index
+	*/
 	std::vector<double> get_subset_y(int from = 0, int to = -1) {
 		if (to == -1 || to >= y_rows) to = y_rows;
 		if (from < 0) from = 0;
@@ -158,6 +183,9 @@ public:
 		return subset;
 	}
 
+	/**
+	* Randomly changes order of input vectors and labels inplace while preserving the correct matching.
+	*/
 	void shuffle() {
 		std::vector<int> indexes; // ALLOC - dims known on init of Dataset
 		indexes.reserve(X.size());
@@ -175,6 +203,10 @@ public:
 		y = y_shuffled;
 	}
 
+	/**
+	* Randomly separates a desired share of data (typically validation dataset) 
+	* while reducing the data in itself.
+	*/
 	Dataset separate_validation_dataset(double validation_share, bool random = true) {
 		if ((validation_share <= 0) || (validation_share >= 1)) {
 			std::cerr << "ERROR: Share of data for validation must be between 0 and 1.\n";
@@ -197,7 +229,10 @@ public:
 
 		return validation_dataset;
 	}
-
+	
+	/**
+	* Replaces true labels (if present) with predicted ones
+	*/
 	void set_y(std::vector<double> y_pred) {
 		if (y_pred.size() != X_rows) std::cerr << "ERROR: Length of y does not correspond to length of X." << std::endl;
 		y = y_pred;
@@ -213,11 +248,19 @@ private:
 };
 
 
+/**
+* Parent class for generating random numbers
+* 
+* Only requires the child classes to be able to sample from their distribution.
+*/
 class RandomGenerator
 {
 	virtual double get_sample() = 0;
 };
 
+/**
+* Provides sampling from normal distribution
+*/
 class NormalRandomGenerator : public RandomGenerator
 {
 public:
@@ -237,6 +280,9 @@ private:
 	double mean, std;
 };
 
+/**
+* Provides sampling from Bernoulli distribution
+*/
 class BernoulliGenerator : public RandomGenerator
 {
 public:
@@ -256,23 +302,32 @@ private:
 	double p;
 };
 
-// ALLOC - tady je pravdepodobne hlavni misto pro optimalizace
-// urcite potrebuju nenarocne prenastavovani values, abych mohl jen ladovat nove hodnoty do predpripravenych matic
+
+/**
+* Stores matrix type data and basic metadat (nrows, ncols)
+* Implements all needed matrix operations.
+*/
 class Matrix
 {
 public:
 	Matrix() : values(0, std::vector<double>(0)), shape({0,0}) {}
 
-	/* Matrix init with given shape and default value */
+	/**
+	* Initialize with given shape and default value 
+	*/
 	Matrix(unsigned int nrow, unsigned int ncol, double default_value = 0) : 
 		values(nrow, std::vector<double>(ncol, default_value)), 
 		cachedValues(nrow, std::vector<double>(ncol, default_value)), 
 		shape({ nrow, ncol }) {}
 
-	/* Matrix init with given data */
+	/**
+	* Initialize with given data 
+	*/
 	Matrix(std::vector<std::vector<double>> data) : values(data), cachedValues(data), shape({data.size(), data[0].size()}) {}
 
-	/* Matrix random init with given shape */
+	/**
+	* Initialize with given shape 
+	*/
 	Matrix(unsigned int nrow, unsigned int ncol, double mean, double std) : 
 		values(nrow, std::vector<double>(ncol)),
 		cachedValues(nrow, std::vector<double>(ncol)), 
@@ -314,6 +369,10 @@ public:
 	std::vector<std::vector<double>> get_values() {
 		return values;
 	}
+
+	/** 
+	* Reset values and update the shape if changing the whole matrix
+	*/
 	void set_values(std::vector<std::vector<double>> in_values) {
 		values = in_values;
 		shape = { in_values.size(), in_values[0].size() };
@@ -325,6 +384,9 @@ public:
 		values[nrow] = in_values;
 	}
 
+	/** 
+	* Matrix multiplication
+	*/
 	Matrix dot(Matrix* second) {
 		int ncols1 = get_shape()[1];
 		int nrows2 = second->get_shape()[0];
@@ -348,6 +410,9 @@ public:
 		}
 	}
 
+	/** 
+	* Sum two matrices with same shape
+	*/
 	Matrix sum(Matrix* second) {
 		if (get_shape() == second->get_shape()) {
 			int nrow = get_shape()[0];
@@ -381,6 +446,10 @@ public:
 		}
 	}
 
+	/** 
+	* Elementwise multiplication by another matrix (with same shape)
+	* or by vector with corresponding lenght (equal to ncols).
+	*/
 	Matrix multiply(Matrix* multiplier) {
 		if (multiplier->get_shape()[0] == 1 && shape[1] == multiplier->get_shape()[1]) {
 			for (size_t i = 0; i < shape[0]; i++) {
@@ -423,6 +492,9 @@ public:
 		return Matrix(cachedValues);
 	}
 
+	/** 
+	* Elementwise multiplication by single value.
+	*/
 	Matrix scalar_mul(double multiplier) {
 		for (size_t i = 0; i < shape[0]; i++) {
 			for (size_t j = 0; j < shape[1]; j++) {
@@ -432,6 +504,9 @@ public:
 		return Matrix(cachedValues);
 	}
 
+	/** 
+	* Returns new transposed matrix.
+	*/
 	Matrix get_transposed() {
 		std::vector<std::vector<double>> transposed(shape[1], std::vector<double>(shape[0]));
 		for (size_t i = 0; i < transposed.size(); i++) {
@@ -443,6 +518,9 @@ public:
 		return result;
 	}
 
+	/** 
+	* Sums columns and returns it as new Matrix.
+	*/
 	Matrix col_sums() {
 		std::vector<double> sums(shape[1]);
 		for (size_t i = 0; i < shape[0]; i++)
@@ -458,14 +536,26 @@ private:
 
 };
 
+
+/**
+* Structure for passing input features in batches together with labels to the NeuralNetwork.
+*/
 struct Batch {
 	Matrix* X,* Y;
 };
 
 
+/**
+* Class responsible for taking subset of data from the underlying dataset
+* and feeding them to the NeuralNetwork.
+* Rembers what rows it has already given.
+*/
 class DataLoader
 {
 public:
+	/**
+	* Initialize DataLoader with underlying Dataset and required batch size.
+	*/
 	DataLoader(Dataset* dataset, int batch_size = 32) :
 		batchSize(batch_size),
 		sourceDataset(dataset),
@@ -476,6 +566,9 @@ public:
 		y_sample(Matrix(batch_size, 1))
 	{}
 
+	/**
+	* Returns one Batch and updates its state.
+	*/
 	Batch get_sample() {
 		if (exhausted) return {};
 		rowsGiven += batchSize;
@@ -488,6 +581,9 @@ public:
 		return sample;
 	}
 
+	/**
+	* Returns one sample and updates its state.
+	*/
 	Batch get_one_sample() {
 		if (exhausted) return {};
 		rowsGiven += 1;
@@ -500,6 +596,9 @@ public:
 		return sample;
 	}
 
+	/**
+	* Returns whole dataset in Batch format.
+	*/
 	Batch get_all_samples() {
 		Matrix X_mat(sourceDataset->get_subset_X()); // ALLOC - dims known on init of DataLoader
 		Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y())); // ALLOC - dims known on init of DataLoader
@@ -508,6 +607,22 @@ public:
 		return sample;
 	}
 
+	/**
+	* Creates one hot encoded vectors from labels
+	* to be able to feed them to NeuralNetwork.
+	*/
+	std::vector<std::vector<double>> one_hot_encode(std::vector<double> labels) {
+		std::vector<std::vector<double>> one_hot_labels(labels.size(), std::vector<double>(CLASSES));
+		for (size_t i = 0; i < labels.size(); i++) {
+			one_hot_labels[i][labels[i]] = 1;
+		}
+		return one_hot_labels;
+	}
+
+	/**
+	* Creates labels from one hot encoded predictions returned from NeuralNetwork
+	* to be able to assign them back to Dataset.
+	*/
 	std::vector<double> one_hot_decode(std::vector<std::vector<double>> one_hot_labels) {
 		std::vector<double> labels(one_hot_labels.size()); // ALLOC - dims depend on n_rows of dataset
 		for (size_t i = 0; i < one_hot_labels.size(); i++) {
@@ -517,20 +632,35 @@ public:
 		return labels;
 	}
 
+	/**
+	* Assigns the predicted labels back to the underlying Dataset.
+	*/
 	void assign_predicted_labels(std::vector<double> y_pred) {
 		sourceDataset->set_y(y_pred);
 	}
 
+	/**
+	* Checks if all rows from Dataset were given.
+	*/
 	bool is_exhausted() {
 		return exhausted;
 	}
+
+	/**
+	* Make the instance forget how many rows it gave.
+	*/
 	void reset() {
 		rowsGiven = 0;
 		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 	}
+
+	/**
+	* Reshuffles the underlying dataset.
+	*/
 	void shuffle_dataset() {
 		sourceDataset->shuffle();
 	}
+
 	int get_n_rows() {
 		return rowsTotal;
 	}
@@ -547,21 +677,26 @@ private:
 	Matrix X_sample;
 	Matrix y_sample;
 	Batch sample;
-
-	std::vector<std::vector<double>> one_hot_encode(std::vector<double> labels) {
-		std::vector<std::vector<double>> one_hot_labels(labels.size(), std::vector<double>(CLASSES));
-		for (size_t i = 0; i < labels.size(); i++) {
-			one_hot_labels[i][labels[i]] = 1;
-		}
-		return one_hot_labels;
-	}
 };
 
 
+/**
+* Class storing two Matrices - weights and bias
+* Impements forward pass.
+* Can reset its weights.
+* Two regularization methods are defined on the Layer's level - dropout and weight decay.
+*/
 class Layer {
 public:
-	Layer(int n_inputs, int n_outputs, double dropout, double weight_decay) : 
-		// He weights initialization
+	/**
+	* Initialization of the Layer with He random initialization of weights
+	* @params:
+	* n of inputs to the layer
+	* n of outputs from the layer
+	* percent of dropout
+	* weight_decay
+	*/
+	Layer(int n_inputs, int n_outputs, double dropout, double weight_decay) :
 		w0(Matrix(1, n_outputs, 0, sqrt(2.0 / n_inputs))),
 		weights(Matrix(n_inputs, n_outputs, 0, sqrt(2.0 / n_inputs))),
 		weightsShape(weights.get_shape()),
@@ -570,6 +705,10 @@ public:
 		weightDecay(weight_decay),
 		dropoutMask(Matrix(1, n_outputs)) {}
 
+	/**
+	* Matrix multiplication of the input with weights and sum of the result with bias.
+	* For training the dropout is switched on, for inference no dropout.
+	*/
 	Matrix pass(Matrix* inputs, bool dropout_switch_on) {
 		int inputs_nrow = inputs->get_shape()[0];
 		if (inputs_nrow != w0ext.get_shape()[0]) {
@@ -593,6 +732,9 @@ public:
 
 	Matrix get_weights() { return weights; }
 
+	/**
+	* Reset its weights with updated ones and apply the weight decay if specified.
+	*/
 	void set_weights(Matrix new_weights) {
 		if (weightDecay == 0.0) weights.set_values(new_weights.get_values());
 		else weights.set_values(new_weights.scalar_mul(1 - weightDecay).get_values());
@@ -602,10 +744,20 @@ public:
 
 	Matrix get_bias() { return w0; }
 
-	void set_bias(Matrix new_weights) { w0.set_values(new_weights.get_values()); }
+	/**
+	* Reset its biases with updated ones and apply the weight decay if specified.
+	*/
+	void set_bias(Matrix new_weights) {
+		if (weightDecay == 0.0) w0.set_values(new_weights.get_values());
+		else w0.set_values(new_weights.scalar_mul(1 - weightDecay).get_values());
+	}
 
 	std::vector<unsigned int> get_bias_shape() { return w0Shape; }
 
+	/**
+	* Creates space for extended Matrix of biases
+	* with numbers of rows determined by the batch size.
+	*/
 	void get_ready_for_pass(DataLoader* dataloader) {
 		w0ext = Matrix(dataloader->get_batch_size(), w0Shape[1]);
 	}
@@ -622,8 +774,16 @@ private:
 };
 
 
+/**
+* Parent class for all activation functions.
+* Requires implementation of evaluation and derivation of a layer
+* and extends these methods to be able to evaluate/derive whole batch.
+*/
 class ActivationFunction {
 public:
+	/**
+	* Applies a specific activiation function to whole batch.
+	*/
 	Matrix evaluate_batch(Matrix* batch_inner_potentials) {
 		Matrix result(batch_inner_potentials->get_shape()[0], batch_inner_potentials->get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
 		for (int i = 0; i < batch_inner_potentials->get_shape()[0]; i++) {
@@ -632,6 +792,9 @@ public:
 		return result;
 	}
 
+	/**
+	* Applies derivation of a specific activiation function to whole batch.
+	*/
 	Matrix derive_batch(Matrix* batch_neuron_outputs, Matrix* batch_y_true = &Matrix()) {
 		Matrix result(batch_neuron_outputs->get_shape()[0], batch_neuron_outputs->get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
 		if (batch_y_true->get_shape()[1] > 0) {
@@ -656,6 +819,9 @@ private:
 
 class ReLU :public ActivationFunction {
 private:
+	/**
+	* Apply ReLU to the inner potentials of the layer.
+	*/
 	std::vector<double> evaluate_layer(std::vector<double> inner_potentials) {
 		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
 		for (size_t i = 0; i < inner_potentials.size(); i++) {
@@ -663,6 +829,10 @@ private:
 		}
 		return result;
 	}
+
+	/**
+	* Apply derivative of ReLU to the layer.
+	*/
 	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
 		std::vector<double> result(neuron_outputs.size(), 0); // ALLOC - I know the dimensions on init of NN
 		for (size_t i = 0; i < neuron_outputs.size(); i++) {
@@ -675,6 +845,9 @@ private:
 
 class Softmax :public ActivationFunction {
 private:
+	/**
+	* Apply Softmax to the inner potentials of the layer.
+	*/
 	std::vector<double> evaluate_layer(std::vector<double> inner_potentials) {
 		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
 		double denominator = 0.0;
@@ -691,13 +864,9 @@ private:
 		return result;
 	}
 
-	// This is fujky and doesn't correspond to the structure of activation functions but I know why I'm doing it and what is going on!
-	// below is not derivative of Softmax itself
-	// it is product of derivative of cross entropy loss function and softmax activation function
-	// so it treats the last layer differently from other layers
-	// implements "two steps in one" compared to the derive_layer funcs of other activation functions
-	// corresponds to dE/dy * sigma'(inner_pottentials) (slide 106 in presentations)
-	// it is also source of the awful ifelse in derive_batch method
+	/**
+	* Apply derivative of Softmax with (!) Cross Entropy Loss function (!) to the layer.
+	*/
 	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
 		std::vector<double> result(neuron_outputs.size()); // ALLOC - I know the dimensions on init of NN
 		for (size_t i = 0; i < result.size(); i++) {
@@ -707,17 +876,18 @@ private:
 	}
 };
 
+/**
+* Parent class for loss functions.
+* Requires implementation loss calculation for singe sample
+* and extends it to loss calculation for whole batch.
+*/
 class LossFunction {
 public:
 	virtual double calculate_loss(std::vector<double> y_true, std::vector<double> y_pred) = 0;
-	double calculate_sum_batch_loss(Matrix Y_true, Matrix Y_pred) {
-		batch_loss = 0.0;
-		for (int i = 0; i < Y_true.get_shape()[0]; i++) {
-			batch_loss += calculate_loss(Y_true.get_values()[i], Y_pred.get_values()[i]);
-		}
-		return batch_loss;
-	}
 
+	/**
+	* Applies the loss function to whole batch.
+	*/
 	double calculate_mean_batch_loss(Matrix* Y_true, Matrix* Y_pred) {
 		batch_loss = 0.0;
 		for (int i = 0; i < Y_true->get_shape()[0]; i++) {
@@ -732,6 +902,9 @@ private:
 
 class CrossEntropyLoss :public LossFunction {
 public:
+	/**
+	* Calculates loss on single sample.
+	*/
 	double calculate_loss(std::vector<double> y_true, std::vector<double> y_pred) {
 		loss = 0.0;
 		for (size_t i = 0; i < y_true.size(); i++) {
@@ -745,19 +918,30 @@ private:
 
 };
 
+
+/**
+* Parent class for all optimizers.
+* Requires calculation of bias and weights update from given gradients.
+*/
 class Optimizer {
 public:
 	virtual std::vector<Matrix> calculate_bias_update(std::vector<Matrix> bias_grad) = 0;
 	virtual std::vector<Matrix> calculate_weights_update(std::vector<Matrix> weights_grad) = 0;
-	virtual void get_ready_for_optimization(std::vector<Layer *> nn_layers) = 0;
+	virtual void get_ready_for_optimization(std::vector<Layer*> nn_layers) = 0;
 private:
 	double learningRate;
 };
 
 class SGD :public Optimizer {
 public:
+	/**
+	* Initialize SGD with learning rate, momentum and option of Nesterov momentum.
+	*/
 	SGD(double learning_rate, double momentum_alpha = 0.0, bool nesterov = false) : learningRate(learning_rate), momentumAlpha(momentum_alpha), nesterovMomentum(nesterov) {}
 
+	/**
+	* Calclutes the bias update from the given gradient.
+	*/
 	std::vector<Matrix> calculate_bias_update(std::vector<Matrix> bias_grad) {
 		if (momentumAlpha != 0.0 && nesterovMomentum) {
 			for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
@@ -778,8 +962,10 @@ public:
 		return currentBiasUpdate;
 	}
 
+	/**
+	* Calclutes the weights update from the given gradient.
+	*/
 	std::vector<Matrix> calculate_weights_update(std::vector<Matrix> weights_grad) {
-
 		if (momentumAlpha != 0.0 && nesterovMomentum) {
 			for (size_t i = 0; i < currentWeightsUpdate.size(); i++) {
 				previousWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate).sum(previousWeightsUpdate[i].scalar_mul(momentumAlpha));
@@ -803,6 +989,9 @@ public:
 		set_weights_update_dimensions(nn_layers);
 	}
 
+	/**
+	* Prepares the optimizer for training by setting the initial updates.
+	*/
 	void set_weights_update_dimensions(std::vector<Layer*> nn_layers) {
 		for (size_t i = 0; i < nn_layers.size(); i++) {
 			currentBiasUpdate.push_back(Matrix(nn_layers[i]->get_bias_shape()[0], nn_layers[i]->get_bias_shape()[1]));
@@ -822,6 +1011,10 @@ private:
 	std::vector<Matrix> previousWeightsUpdate;
 };
 
+
+/**
+* Parent class for metrics requiring method for calculation the metric for whole batch.
+*/
 class Metric {
 public:
 	virtual double calculate_metric_for_batch(Matrix* Y_true, Matrix* Y_pred) = 0;
@@ -846,8 +1039,12 @@ private:
 
 };
 
+
 class NeuralNetwork {
 public:
+	/**
+	* Initialize NeuralNetwork if lengths of layers and activation functions are matching.
+	*/
 	NeuralNetwork(
 		std::vector<Layer*> layers,
 		std::vector<ActivationFunction*> activation_functions,
@@ -877,7 +1074,13 @@ public:
 		}
 	}
 
-
+	
+	/**
+	* Changes network's state (weights) by training for n epochs on train dataset 
+	* and validates the results after every epoch.
+	* Displays basic info about the training.
+	* Reshuffles train dataset at the beginning of every epoch if desired.
+	*/
 	void train(int epochs, DataLoader* train_dataset, DataLoader* validation_dataset, bool shuffle_train = true) {
 		for (int i = 0; i < epochs; i++) {
 			std::cout << "Epoch " << epochsDone + 1 << ":" << std::endl;
@@ -942,6 +1145,9 @@ private:
 	std::vector<double> trainMetricInEpoch;
 	std::vector<double> validationMetricInEpoch;
 
+	/**
+	* Iterates over all layers and activation functions to get predictions from input features.
+	*/
 	void forward_pass(Batch batch, bool dropout_switch_on) {
 		neuronsOutputs[0] = (*batch.X);
 		for (size_t i = 0; i < countLayers; i++)
@@ -951,6 +1157,9 @@ private:
 		}
 	}
 
+	/**
+	* Iterates over all layers and activation functions backwards to get gradients.
+	*/
 	void backward_pass(Batch batch) {
 		deltas[countLayers - 1].set_values(activationFunctions[countLayers - 1]->derive_batch(&neuronsOutputs[countLayers], batch.Y).get_values());
 
@@ -964,10 +1173,16 @@ private:
 		}
 	}
 
+	/**
+	* Supplies the computed gradients to the optimizer and performs one optimization step
+	*/
 	void optimize() {
 		update_layers(optimizer->calculate_bias_update(biasGradients), optimizer->calculate_weights_update(weightsGradients));
 	}
 
+	/**
+	* Updates layers' weights and biases with updates returned from the optimizer.
+	*/
 	void update_layers(std::vector<Matrix> bias_update, std::vector<Matrix> weights_update) {
 		for (size_t i = 0; i < countLayers; i++) {
 			layers[i]->set_bias(layers[i]->get_bias().sum(&bias_update[i]));
@@ -975,6 +1190,9 @@ private:
 		}
 	}
 
+	/**
+	* Performs argmax on predicted probabilities to get one hot encoded predictions.
+	*/
 	Matrix* batch_output_probabilities_to_predictions() {
 		oneHotPredictions.set_values(std::vector<std::vector<double>>(neuronsOutputs[countLayers].get_shape()[0], std::vector<double>(neuronsOutputs[countLayers].get_shape()[1])));
 		double max = 0;
@@ -993,15 +1211,26 @@ private:
 		return &oneHotPredictions;
 	}
 
+	/**
+	* Information about training from one training epoch.
+	*/
 	void display_train_metrics_from_last_epoch() {
 		std::cout << "Train loss: " << trainLossInEpoch[epochsDone - 1] << std::endl;
 		std::cout << "Train metric: " << trainMetricInEpoch[epochsDone - 1] << std::endl;
 	}
+
+	/**
+	* Information about validation from one training epoch.
+	*/
 	void display_validation_metrics_from_last_epoch() {
 		std::cout << "Validation loss: " << validationLossInEpoch[epochsDone - 1] << std::endl;
 		std::cout << "Validation metric: " << validationMetricInEpoch[epochsDone - 1] << std::endl;
 	}
 
+	/**
+	* Creates Matrix ready to receive oneHotPredictions with dims based on batch size.
+	* TODO? reserve the Matrices also for innerPotentials, neuronOutputs, deltas,... ?
+	*/
 	void get_ready(DataLoader* dataloader) {
 		oneHotPredictions = Matrix(dataloader->get_batch_size(), CLASSES);
 	}
