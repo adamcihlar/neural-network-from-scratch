@@ -507,6 +507,7 @@ public:
 	* Elementwise multiplication by single value.
 	*/
 	Matrix scalar_mul(double multiplier) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < shape[0]; i++) {
 			for (size_t j = 0; j < shape[1]; j++) {
 				cachedValues[i][j] = values[i][j] * multiplier;
@@ -520,6 +521,7 @@ public:
 	*/
 	Matrix get_transposed() {
 		std::vector<std::vector<double>> transposed(shape[1], std::vector<double>(shape[0]));
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < transposed.size(); i++) {
 			for (size_t j = 0; j < transposed[i].size(); j++) {
 				transposed[i][j] = values[j][i];
@@ -534,6 +536,7 @@ public:
 	*/
 	Matrix col_sums() {
 		std::vector<double> sums(shape[1]);
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < shape[0]; i++)
 			for (size_t j = 0; j < shape[1]; j++)
 				sums[j] += values[i][j];
