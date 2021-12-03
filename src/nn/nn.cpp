@@ -1338,7 +1338,7 @@ int main() {
 	std::srand(42);
 
 	int batch_size = 32;
-	double learning_rate = 0.0005;
+	double learning_rate = 0.002;
 
 	Dataset train;
 	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
@@ -1358,7 +1358,7 @@ int main() {
 	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
-	SGD sgd(learning_rate, 0.95, true);
+	SGD sgd(learning_rate, 0.90, true);
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
