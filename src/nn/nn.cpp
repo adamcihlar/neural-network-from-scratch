@@ -1141,9 +1141,9 @@ public:
 		prediction_dataloader->reset();
 
 		for (size_t i = 0; i < n_predictions; i++) {
-			Batch batch = prediction_dataloader->get_one_sample();
-			//forward_pass(batch, false);
-			//one_hot_predictions[i] = batch_output_probabilities_to_predictions()->get_values()[0];
+			Batch batch = prediction_dataloader->get_sample();
+			forward_pass(batch, false);
+			one_hot_predictions[i] = batch_output_probabilities_to_predictions()->get_values()[0];
 		}
 
 		//std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
@@ -1372,7 +1372,7 @@ int main() {
 
 	Dataset test;
 	test.load_mnist_data("data/fashion_mnist_test_vectors_00.csv", true);
-	DataLoader test_loader(&test, 200);
+	DataLoader test_loader(&test, 1);
 	nn.predict(&test_loader);
 	//test.save_labels("data/actualTestPredictions");
 
