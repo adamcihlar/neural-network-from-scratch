@@ -802,7 +802,7 @@ public:
 	*/
 	Matrix evaluate_batch(Matrix* batch_inner_potentials) {
 		Matrix result(batch_inner_potentials->get_shape()[0], batch_inner_potentials->get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
-#pragma omp parallel for num_threads(NUM_THREADS)
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < batch_inner_potentials->get_shape()[0]; i++) {
 			result.set_row(i, evaluate_layer(batch_inner_potentials->get_values()[i]));
 		}
@@ -815,13 +815,13 @@ public:
 	Matrix derive_batch(Matrix* batch_neuron_outputs, Matrix* batch_y_true = &Matrix()) {
 		Matrix result(batch_neuron_outputs->get_shape()[0], batch_neuron_outputs->get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
 		if (batch_y_true->get_shape()[1] > 0) {
-#pragma omp parallel for num_threads(NUM_THREADS)
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < batch_neuron_outputs->get_shape()[0]; i++) {
 				result.set_row(i, derive_layer(batch_neuron_outputs->get_values()[i], batch_y_true->get_values()[i]));
 			}
 		}
 		else {
-#pragma omp parallel for num_threads(NUM_THREADS)
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < batch_neuron_outputs->get_shape()[0]; i++) {
 				result.set_row(i, derive_layer(batch_neuron_outputs->get_values()[i]));
 			}
@@ -1358,7 +1358,7 @@ int main() {
 	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
-	SGD sgd(learning_rate, 0.90, true);
+	SGD sgd(learning_rate, 0.90, false);
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
