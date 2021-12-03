@@ -1350,13 +1350,13 @@ int main() {
 	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
-	Dataset validation = train.separate_validation_dataset(0.2);
+	Dataset validation = train.separate_validation_dataset(0.1);
 
 	DataLoader train_loader(&train, batch_size);
 	DataLoader validation_loader(&validation, 200);
 
 	Layer layer0(train.get_X_cols(), 256, 0.15, 0.0001);
-	Layer layer1(256, 64, 0.0, 0.00001);
+	Layer layer1(256, 64, 0.0, 0.0001);
 	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
