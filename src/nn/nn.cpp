@@ -1140,6 +1140,7 @@ public:
 		// and get rid off this while
 		prediction_dataloader->reset();
 
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < n_predictions; i++) {
 			Batch batch = prediction_dataloader->get_one_sample();
 			forward_pass(batch, false);
