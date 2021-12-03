@@ -568,8 +568,9 @@ public:
 	/**
 	* Initialize DataLoader with underlying Dataset and required batch size.
 	*/
-	DataLoader(Dataset* dataset, int batch_size = 32) :
+	DataLoader(Dataset* dataset, int batch_size, int double_batch_size_every_n_epochs = 0) :
 		batchSize(batch_size),
+		doubleBatchSizeEveryNEpochs(double_batch_size_every_n_epochs),
 		sourceDataset(dataset),
 		rowsTotal(dataset->get_X_rows()),
 		rowsGiven(0),
@@ -668,6 +669,13 @@ public:
 		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 	}
 
+	void update_batch_size(int epochs_done) {
+		if (doubleBatchSizeEveryNEpochs == 0) return;
+		if (epochs_done % doubleBatchSizeEveryNEpochs == 0) {
+			batchSize *= 2;
+		}
+	}
+
 	/**
 	* Reshuffles the underlying dataset.
 	*/
@@ -685,6 +693,7 @@ public:
 private:
 	Dataset* sourceDataset;
 	int batchSize;
+	int doubleBatchSizeEveryNEpochs;
 	int rowsGiven;
 	int rowsTotal;
 	bool exhausted;
@@ -1273,6 +1282,7 @@ private:
 	void train_epoch(DataLoader* train_dataloader, bool shuffle) {
 		if (shuffle) train_dataloader->shuffle_dataset();
 		train_dataloader->reset();
+		train_dataloader->update_batch_size(epochsDone);
 
 		get_ready(train_dataloader);
 
@@ -1350,7 +1360,7 @@ int main() {
 
 	Dataset validation = train.separate_validation_dataset(0.1);
 
-	DataLoader train_loader(&train, batch_size);
+	DataLoader train_loader(&train, batch_size, 2);
 	DataLoader validation_loader(&validation, 200);
 
 	Layer layer0(train.get_X_cols(), 256, 0.15, 0.00001);
@@ -1365,7 +1375,7 @@ int main() {
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2 }, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(1, &train_loader, &validation_loader);
+	nn.train(4, &train_loader, &validation_loader);
 
 	//Dataset test;
 	//test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
