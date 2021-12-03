@@ -197,7 +197,7 @@ public:
 #pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < X.size(); ++i)
 			//indexes.push_back(i);
-			indexes[i];
+			indexes[i] = i;
 		std::random_shuffle(indexes.begin(), indexes.end());
 
 		std::vector<std::vector<double>> X_shuffled(X_rows, std::vector<double>(X_cols)); // ALLOC
@@ -341,6 +341,7 @@ public:
 		cachedValues(nrow, std::vector<double>(ncol)), 
 		shape({ nrow, ncol }) {
 		NormalRandomGenerator randgen(mean, std);
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < shape[0]; i++) {
 			for (size_t j = 0; j < shape[1]; j++) {
 				values[i][j] = randgen.get_sample();
@@ -643,6 +644,7 @@ public:
 	*/
 	std::vector<double> one_hot_decode(std::vector<std::vector<double>> one_hot_labels) {
 		std::vector<double> labels(one_hot_labels.size()); // ALLOC - dims depend on n_rows of dataset
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < one_hot_labels.size(); i++) {
 			std::vector<double>::iterator result = std::max_element(one_hot_labels[i].begin(), one_hot_labels[i].end());
 			labels[i] = std::distance(one_hot_labels[i].begin(), result);
