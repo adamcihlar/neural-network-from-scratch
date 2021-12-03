@@ -76,7 +76,6 @@ public:
 
 				int last_element_index = int_vec.size() - 1;
 
-// nopragma!
 				for (size_t i = 0; i < last_element_index; i++)
 				{
 					sline >> element >> delimiter;
@@ -1140,20 +1139,20 @@ public:
 		// and get rid off this while
 		prediction_dataloader->reset();
 
-		for (size_t i = 0; i < n_predictions; i++) {
-			Batch batch = prediction_dataloader->get_one_sample();
-			forward_pass(batch, false);
-			one_hot_predictions[i] = batch_output_probabilities_to_predictions()->get_values()[0];
-		}
+		//for (size_t i = 0; i < n_predictions; i++) {
+		//	Batch batch = prediction_dataloader->get_one_sample();
+		//	forward_pass(batch, false);
+		//	one_hot_predictions[i] = batch_output_probabilities_to_predictions()->get_values()[0];
+		//}
 
-		std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
-		prediction_dataloader->assign_predicted_labels(predictions);
-
-		//Batch batch = prediction_dataloader->get_all_samples();
-		//forward_pass(batch);
-		//one_hot_predictions = batch_output_probabilities_to_predictions().get_values();
 		//std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
 		//prediction_dataloader->assign_predicted_labels(predictions);
+
+		Batch batch = prediction_dataloader->get_all_samples();
+		forward_pass(batch, false);
+		one_hot_predictions = batch_output_probabilities_to_predictions()->get_values();
+		std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
+		prediction_dataloader->assign_predicted_labels(predictions);
 	}
 
 
@@ -1345,10 +1344,10 @@ int main() {
 	double learning_rate = 0.001;
 
 	Dataset train;
-	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	train.load_labels("data/fashion_mnist_train_labels.csv");
-	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
-	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
+	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	//train.load_labels("data/fashion_mnist_train_labels.csv");
+	train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
+	train.load_labels("data/fashion_mnist_train_labels_00.csv");
 	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
@@ -1369,7 +1368,7 @@ int main() {
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2 }, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(1, &train_loader, &validation_loader);
+	nn.train(8, &train_loader, &validation_loader);
 
 	Dataset test;
 	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
@@ -1377,9 +1376,9 @@ int main() {
 	nn.predict(&test_loader);
 	test.save_labels("data/actualTestPredictions");
 
-	DataLoader infer_train(&train, 200);
-	nn.predict(&infer_train);
-	train.save_labels("data/trainPredictions");
+	//DataLoader infer_train(&train, 200);
+	//nn.predict(&infer_train);
+	//train.save_labels("data/trainPredictions");
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
