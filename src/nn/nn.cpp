@@ -19,7 +19,7 @@
 // Hack
 #include <omp.h>
 
-int NUM_THREADS = 16;
+int NUM_THREADS = 4;
 int CLASSES = 10;
 
 
@@ -1119,7 +1119,7 @@ public:
 	* Displays basic info about the training.
 	* Reshuffles train dataset at the beginning of every epoch if desired.
 	*/
-	void train(int epochs, DataLoader* train_dataset, DataLoader* validation_dataset, bool shuffle_train = true) {
+	void train(int epochs, DataLoader* train_dataset, DataLoader* validation_dataset, bool early_stopping, bool shuffle_train = true) {
 		for (int i = 0; i < epochs; i++) {
 			std::cout << "Epoch " << epochsDone + 1 << ":" << std::endl;
 			train_epoch(train_dataset, shuffle_train);
@@ -1128,6 +1128,9 @@ public:
 			validate_epoch(validation_dataset);
 			display_validation_metrics_from_last_epoch();
 			std::cout << std::endl;
+			if (early_stopping && epochsDone > 3) {
+				if (validationMetricInEpoch[i-3] > validationMetricInEpoch[i]) return;
+			}
 		}
 	}
 
@@ -1347,7 +1350,7 @@ int main() {
 
 	std::srand(42);
 
-	int batch_size = 64;
+	int batch_size = 32;
 	double learning_rate = 0.001;
 
 	Dataset train;
@@ -1360,10 +1363,10 @@ int main() {
 
 	Dataset validation = train.separate_validation_dataset(0.1);
 
-	DataLoader train_loader(&train, batch_size, 2);
+	DataLoader train_loader(&train, batch_size, 3);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 256, 0.15, 0.00001);
+	Layer layer0(train.get_X_cols(), 256, 0.15, 0.0001);
 	Layer layer1(256, 64, 0.0, 0.00001);
 	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
@@ -1375,7 +1378,7 @@ int main() {
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2 }, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(4, &train_loader, &validation_loader);
+	nn.train(20, &train_loader, &validation_loader, true);
 
 	//Dataset test;
 	//test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
