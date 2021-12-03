@@ -192,12 +192,10 @@ public:
 	* Randomly changes order of input vectors and labels inplace while preserving the correct matching.
 	*/
 	void shuffle() {
-		std::vector<int> indexes (X.size()); // ALLOC - dims known on init of Dataset
-		//indexes.reserve(X.size());
-#pragma omp parallel for num_threads(NUM_THREADS)
+		std::vector<int> indexes; // ALLOC - dims known on init of Dataset
+		indexes.reserve(X.size());
 		for (int i = 0; i < X.size(); ++i)
-			//indexes.push_back(i);
-			indexes[i] = i;
+			indexes.push_back(i);
 		std::random_shuffle(indexes.begin(), indexes.end());
 
 		std::vector<std::vector<double>> X_shuffled(X_rows, std::vector<double>(X_cols)); // ALLOC
