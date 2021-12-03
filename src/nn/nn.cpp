@@ -1376,6 +1376,7 @@ int main() {
 	test.save_labels("data/actualTestPredictions");
 
 	Dataset infer_train;
+	infer_train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
 	DataLoader infer_train_loader(&infer_train);
 	nn.predict(&infer_train_loader);
 	infer_train.save_labels("data/trainPredictions");
