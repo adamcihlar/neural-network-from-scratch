@@ -76,7 +76,6 @@ public:
 
 				int last_element_index = int_vec.size() - 1;
 
-
 #pragma omp parallel for num_threads(NUM_THREADS)
 				for (size_t i = 0; i < last_element_index; i++)
 				{
