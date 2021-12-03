@@ -399,7 +399,7 @@ public:
 			int ncols2 = second->get_shape()[1];
 			Matrix result(nrows1, ncols2);
 
-			#pragma omp parallel for num_threads(4)
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (int i = 0; i < nrows1; i++) {
 				for (int k = 0; k < nrows2; k++) {
 					for (int j = 0; j < ncols2; j++) {
@@ -1317,12 +1317,12 @@ int main() {
 	double learning_rate = 0.0005;
 
 	Dataset train;
-	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	//train.load_labels("data/fashion_mnist_train_labels.csv");
+	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	train.load_labels("data/fashion_mnist_train_labels.csv");
 	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
-	train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
-	train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
+	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
+	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
 	Dataset validation = train.separate_validation_dataset(0.2);
 
