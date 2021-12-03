@@ -603,7 +603,7 @@ public:
 		rowsGiven += 1;
 		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 
-		X_sample.set_values(sourceDataset->get_subset_X(rowsGiven - batchSize, rowsGiven));
+		X_sample.set_values(sourceDataset->get_subset_X(rowsGiven - 1, rowsGiven));
 		//Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y(rowsGiven - 1, rowsGiven))); // ALLOC - dims known on init of DataLoader
 
 		sample = { &X_sample, &y_sample };
@@ -614,10 +614,10 @@ public:
 	* Returns whole dataset in Batch format.
 	*/
 	Batch get_all_samples() {
-		Matrix X_mat(sourceDataset->get_subset_X()); // ALLOC - dims known on init of DataLoader
-		Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y())); // ALLOC - dims known on init of DataLoader
+		X_sample.set_values(sourceDataset->get_subset_X());
+		//Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y(rowsGiven - 1, rowsGiven))); // ALLOC - dims known on init of DataLoader
 
-		sample = { &X_mat, &Y_mat };
+		sample = { &X_sample, &y_sample };
 		return sample;
 	}
 
