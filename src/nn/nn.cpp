@@ -422,6 +422,7 @@ public:
 		if (get_shape() == second->get_shape()) {
 			int nrow = get_shape()[0];
 			int ncol = get_shape()[1];
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (int i = 0; i < nrow; i++) {
 				for (int j = 0; j < ncol; j++) {
 					cachedValues[i][j] = values[i][j] + second->values[i][j];
@@ -438,6 +439,7 @@ public:
 		if (get_shape() == second.get_shape()) {
 			int nrow = get_shape()[0];
 			int ncol = get_shape()[1];
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (int i = 0; i < nrow; i++) {
 				for (int j = 0; j < ncol; j++) {
 					cachedValues[i][j] = values[i][j] + second.values[i][j];
@@ -457,6 +459,7 @@ public:
 	*/
 	Matrix multiply(Matrix* multiplier) {
 		if (multiplier->get_shape()[0] == 1 && shape[1] == multiplier->get_shape()[1]) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier->get_values()[0][j];
@@ -464,6 +467,7 @@ public:
 			}
 		}
 		else if (multiplier->get_shape() == shape) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier->get_values()[i][j];
@@ -478,6 +482,7 @@ public:
 
 	Matrix multiply(Matrix multiplier) {
 		if (multiplier.get_shape()[0] == 1 && shape[1] == multiplier.get_shape()[1]) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier.get_values()[0][j];
@@ -485,6 +490,7 @@ public:
 			}
 		}
 		else if (multiplier.get_shape() == shape) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier.get_values()[i][j];
@@ -501,6 +507,7 @@ public:
 	* Elementwise multiplication by single value.
 	*/
 	Matrix scalar_mul(double multiplier) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < shape[0]; i++) {
 			for (size_t j = 0; j < shape[1]; j++) {
 				cachedValues[i][j] = values[i][j] * multiplier;
@@ -514,6 +521,7 @@ public:
 	*/
 	Matrix get_transposed() {
 		std::vector<std::vector<double>> transposed(shape[1], std::vector<double>(shape[0]));
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < transposed.size(); i++) {
 			for (size_t j = 0; j < transposed[i].size(); j++) {
 				transposed[i][j] = values[j][i];
@@ -630,6 +638,7 @@ public:
 	*/
 	std::vector<double> one_hot_decode(std::vector<std::vector<double>> one_hot_labels) {
 		std::vector<double> labels(one_hot_labels.size()); // ALLOC - dims depend on n_rows of dataset
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < one_hot_labels.size(); i++) {
 			std::vector<double>::iterator result = std::max_element(one_hot_labels[i].begin(), one_hot_labels[i].end());
 			labels[i] = std::distance(one_hot_labels[i].begin(), result);
@@ -725,6 +734,7 @@ public:
 
 		if (dropout != 0.0 && dropout_switch_on) {
 			BernoulliGenerator b_rand(1 - dropout);
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < weightsShape[1]; i++) {
 				dropoutMask.set_value(0, i, b_rand.get_sample() / (1 - dropout));
 			}
@@ -791,6 +801,7 @@ public:
 	*/
 	Matrix evaluate_batch(Matrix* batch_inner_potentials) {
 		Matrix result(batch_inner_potentials->get_shape()[0], batch_inner_potentials->get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < batch_inner_potentials->get_shape()[0]; i++) {
 			result.set_row(i, evaluate_layer(batch_inner_potentials->get_values()[i]));
 		}
@@ -803,11 +814,13 @@ public:
 	Matrix derive_batch(Matrix* batch_neuron_outputs, Matrix* batch_y_true = &Matrix()) {
 		Matrix result(batch_neuron_outputs->get_shape()[0], batch_neuron_outputs->get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
 		if (batch_y_true->get_shape()[1] > 0) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < batch_neuron_outputs->get_shape()[0]; i++) {
 				result.set_row(i, derive_layer(batch_neuron_outputs->get_values()[i], batch_y_true->get_values()[i]));
 			}
 		}
 		else {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < batch_neuron_outputs->get_shape()[0]; i++) {
 				result.set_row(i, derive_layer(batch_neuron_outputs->get_values()[i]));
 			}
@@ -949,6 +962,7 @@ public:
 	*/
 	std::vector<Matrix> calculate_bias_update(std::vector<Matrix> bias_grad) {
 		if (momentumAlpha != 0.0 && nesterovMomentum) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
 				previousBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate).sum(previousBiasUpdate[i].scalar_mul(momentumAlpha));
 				currentBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate).sum(previousBiasUpdate[i].scalar_mul(momentumAlpha));
@@ -956,12 +970,14 @@ public:
 			return currentBiasUpdate;
 		}
 		else if (momentumAlpha == 0.0) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
 				currentBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate);
 			}
 			return currentBiasUpdate;
 		}
 		for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			currentBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate).sum(previousBiasUpdate[i].scalar_mul(momentumAlpha));
 		}
 		previousBiasUpdate = currentBiasUpdate;
@@ -973,6 +989,7 @@ public:
 	*/
 	std::vector<Matrix> calculate_weights_update(std::vector<Matrix> weights_grad) {
 		if (momentumAlpha != 0.0 && nesterovMomentum) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < currentWeightsUpdate.size(); i++) {
 				previousWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate).sum(previousWeightsUpdate[i].scalar_mul(momentumAlpha));
 				currentWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate).sum(previousWeightsUpdate[i].scalar_mul(momentumAlpha));
@@ -980,11 +997,13 @@ public:
 			return currentWeightsUpdate;
 		}
 		else if (momentumAlpha == 0.0) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < currentWeightsUpdate.size(); i++) {
 				currentWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate);
 			}
 			return currentWeightsUpdate;
 		}
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < currentWeightsUpdate.size(); i++) {
 			currentWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate).sum(previousWeightsUpdate[i].scalar_mul(momentumAlpha));
 		}
@@ -1115,6 +1134,7 @@ public:
 		// and get rid off this while
 		prediction_dataloader->reset();
 
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < n_predictions; i++) {
 			Batch batch = prediction_dataloader->get_one_sample();
 			forward_pass(batch, false);
@@ -1157,6 +1177,7 @@ private:
 	*/
 	void forward_pass(Batch batch, bool dropout_switch_on) {
 		neuronsOutputs[0] = (*batch.X);
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < countLayers; i++)
 		{
 			innerPotentials[i].set_values(layers[i]->pass(&neuronsOutputs[i], dropout_switch_on).get_values());
@@ -1173,6 +1194,7 @@ private:
 		weightsGradients[countLayers - 1] = neuronsOutputs[countLayers - 1].get_transposed().dot(&deltas[countLayers - 1]);
 		biasGradients[countLayers - 1] = deltas[countLayers - 1].col_sums();
 
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = countLayers - 2; i >= 0; i--) {
 			deltas[i] = activationFunctions[i]->derive_batch(&innerPotentials[i]).multiply(deltas[i + 1].dot(&layers[i + 1]->get_weights().get_transposed()));
 			weightsGradients[i] = neuronsOutputs[i].get_transposed().dot(&deltas[i]);
@@ -1204,6 +1226,7 @@ private:
 		oneHotPredictions.set_values(std::vector<std::vector<double>>(neuronsOutputs[countLayers].get_shape()[0], std::vector<double>(neuronsOutputs[countLayers].get_shape()[1])));
 		double max = 0;
 		int argmax = 0;
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < oneHotPredictions.get_shape()[0]; i++) {
 			max = 0;
 			argmax = 0;
