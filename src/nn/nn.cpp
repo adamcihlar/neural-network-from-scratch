@@ -76,6 +76,7 @@ public:
 
 				int last_element_index = int_vec.size() - 1;
 
+// nopragma!
 				for (size_t i = 0; i < last_element_index; i++)
 				{
 					sline >> element >> delimiter;
