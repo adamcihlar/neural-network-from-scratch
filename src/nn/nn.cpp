@@ -459,6 +459,7 @@ public:
 	*/
 	Matrix multiply(Matrix* multiplier) {
 		if (multiplier->get_shape()[0] == 1 && shape[1] == multiplier->get_shape()[1]) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier->get_values()[0][j];
@@ -466,6 +467,7 @@ public:
 			}
 		}
 		else if (multiplier->get_shape() == shape) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier->get_values()[i][j];
@@ -480,6 +482,7 @@ public:
 
 	Matrix multiply(Matrix multiplier) {
 		if (multiplier.get_shape()[0] == 1 && shape[1] == multiplier.get_shape()[1]) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier.get_values()[0][j];
@@ -487,6 +490,7 @@ public:
 			}
 		}
 		else if (multiplier.get_shape() == shape) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier.get_values()[i][j];
