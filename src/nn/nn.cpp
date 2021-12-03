@@ -1147,8 +1147,8 @@ public:
 			one_hot_predictions[i] = batch_output_probabilities_to_predictions()->get_values()[0];
 		}
 
-		std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
-		prediction_dataloader->assign_predicted_labels(predictions);
+		//std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
+		//prediction_dataloader->assign_predicted_labels(predictions);
 
 		//Batch batch = prediction_dataloader->get_all_samples();
 		//forward_pass(batch);
