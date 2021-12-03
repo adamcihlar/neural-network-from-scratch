@@ -118,7 +118,6 @@ public:
 			while (myfile >> element) {
 				res_vec.push_back(element);
 				rowcount++;
-				if (rowcount % 1000 == 0) std::cout << rowcount << std::endl;
 			}
 
 			if (rowcount > 0) {
@@ -1336,7 +1335,7 @@ int main() {
 
 	std::srand(42);
 
-	int batch_size = 64;
+	int batch_size = 256;
 	double learning_rate = 0.001;
 
 	Dataset train;
@@ -1353,7 +1352,7 @@ int main() {
 	DataLoader validation_loader(&validation, 200);
 
 	Layer layer0(train.get_X_cols(), 256, 0.15, 0.0001);
-	Layer layer1(256, 64, 0.0, 0.0001);
+	Layer layer1(256, 64, 0.0, 0.00001);
 	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
