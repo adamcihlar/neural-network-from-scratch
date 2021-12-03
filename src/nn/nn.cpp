@@ -1336,15 +1336,15 @@ int main() {
 
 	nn.train(1, &train_loader, &validation_loader);
 
-	Dataset test;
-	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
-	DataLoader test_loader(&test, 200);
-	nn.predict(&test_loader);
-	test.save_labels("data/actualTestPredictions");
+	//Dataset test;
+	//test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
+	//DataLoader test_loader(&test, 200);
+	//nn.predict(&test_loader);
+	//test.save_labels("data/actualTestPredictions");
 
-	DataLoader infer_train(&train, 200);
-	nn.predict(&infer_train);
-	train.save_labels("data/trainPredictions");
+	//DataLoader infer_train(&train, 200);
+	//nn.predict(&infer_train);
+	//train.save_labels("data/trainPredictions");
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
