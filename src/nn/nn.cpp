@@ -1323,6 +1323,8 @@ int main() {
 
 	auto start = std::chrono::high_resolution_clock::now();
 
+	std::srand(42);
+
 	int batch_size = 64;
 	double learning_rate = 0.0005;
 
