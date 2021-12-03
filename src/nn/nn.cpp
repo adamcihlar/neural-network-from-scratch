@@ -1376,9 +1376,9 @@ int main() {
 	nn.predict(&test_loader);
 	test.save_labels("data/actualTestPredictions");
 
-	//DataLoader infer_train(&train, 200);
-	//nn.predict(&infer_train);
-	//train.save_labels("data/trainPredictions");
+	DataLoader infer_train(&train, 200);
+	nn.predict(&infer_train);
+	train.save_labels("data/trainPredictions");
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
