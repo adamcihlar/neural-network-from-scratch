@@ -70,7 +70,6 @@ public:
 			if (normalize) normalizer = 255;
 
 			std::vector<double> int_vec(784);
-#pragma omp parallel for num_threads(NUM_THREADS)
 			while (std::getline(myfile, line))
 			{
 				std::stringstream sline(line);
