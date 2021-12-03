@@ -86,6 +86,7 @@ public:
 
 				res_mat.push_back(int_vec);
 				rowcount++;
+				if (rowcount % 1000 == 0) std::cout << rowcount << std::endl;
 			}
 
 			if (rowcount > 0) {
@@ -118,6 +119,7 @@ public:
 			while (myfile >> element) {
 				res_vec.push_back(element);
 				rowcount++;
+				if (rowcount % 1000 == 0) std::cout << rowcount << std::endl;
 			}
 
 			if (rowcount > 0) {
@@ -729,11 +731,13 @@ public:
 			w0ext = Matrix(inputs_nrow, w0Shape[1]);
 		}
 
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < inputs_nrow; i++)
 			w0ext.set_row(i, w0.get_values()[0]);
 
 		if (dropout != 0.0 && dropout_switch_on) {
 			BernoulliGenerator b_rand(1 - dropout);
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < weightsShape[1]; i++) {
 				dropoutMask.set_value(0, i, b_rand.get_sample() / (1 - dropout));
 			}
@@ -1335,7 +1339,7 @@ int main() {
 
 	std::srand(42);
 
-	int batch_size = 256;
+	int batch_size = 64;
 	double learning_rate = 0.001;
 
 	Dataset train;
@@ -1365,17 +1369,17 @@ int main() {
 
 	nn.train(1, &train_loader, &validation_loader);
 
-	Dataset test;
-	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
-	DataLoader test_loader(&test, 1);
-	nn.predict(&test_loader);
-	test.save_labels("data/actualTestPredictions");
+	//Dataset test;
+	//test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
+	//DataLoader test_loader(&test, 1);
+	//nn.predict(&test_loader);
+	//test.save_labels("data/actualTestPredictions");
 
-	Dataset infer_train;
-	infer_train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	DataLoader infer_train_loader(&infer_train);
-	nn.predict(&infer_train_loader);
-	infer_train.save_labels("data/trainPredictions");
+	//Dataset infer_train;
+	//infer_train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	//DataLoader infer_train_loader(&infer_train);
+	//nn.predict(&infer_train_loader);
+	//infer_train.save_labels("data/trainPredictions");
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
