@@ -1140,6 +1140,7 @@ public:
 		// and get rid off this while
 		prediction_dataloader->reset();
 
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < n_predictions; i++) {
 			Batch batch = prediction_dataloader->get_one_sample();
 			forward_pass(batch, false);
@@ -1370,10 +1371,10 @@ int main() {
 
 	nn.train(5, &train_loader, &validation_loader);
 
-	//Dataset test;
-	//test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
-	//DataLoader test_loader(&test, 200);
-	//nn.predict(&test_loader);
+	Dataset test;
+	test.load_mnist_data("data/fashion_mnist_test_vectors_00.csv", true);
+	DataLoader test_loader(&test, 200);
+	nn.predict(&test_loader);
 	//test.save_labels("data/actualTestPredictions");
 
 	//DataLoader infer_train(&train, 200);
