@@ -19,7 +19,7 @@
 // Hack
 #include <omp.h>
 
-int NUM_THREADS = 16;
+int NUM_THREADS = 32;
 int CLASSES = 10;
 
 
