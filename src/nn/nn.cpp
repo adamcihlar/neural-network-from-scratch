@@ -19,7 +19,7 @@
 // Hack
 #include <omp.h>
 
-int NUM_THREADS = 32;
+int NUM_THREADS = 16;
 int CLASSES = 10;
 
 
@@ -805,6 +805,7 @@ public:
 	*/
 	Matrix evaluate_batch(Matrix* batch_inner_potentials) {
 		Matrix result(batch_inner_potentials->get_shape()[0], batch_inner_potentials->get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < batch_inner_potentials->get_shape()[0]; i++) {
 			result.set_row(i, evaluate_layer(batch_inner_potentials->get_values()[i]));
 		}
@@ -817,11 +818,13 @@ public:
 	Matrix derive_batch(Matrix* batch_neuron_outputs, Matrix* batch_y_true = &Matrix()) {
 		Matrix result(batch_neuron_outputs->get_shape()[0], batch_neuron_outputs->get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
 		if (batch_y_true->get_shape()[1] > 0) {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < batch_neuron_outputs->get_shape()[0]; i++) {
 				result.set_row(i, derive_layer(batch_neuron_outputs->get_values()[i], batch_y_true->get_values()[i]));
 			}
 		}
 		else {
+#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < batch_neuron_outputs->get_shape()[0]; i++) {
 				result.set_row(i, derive_layer(batch_neuron_outputs->get_values()[i]));
 			}
@@ -843,6 +846,7 @@ private:
 	*/
 	std::vector<double> evaluate_layer(std::vector<double> inner_potentials) {
 		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < inner_potentials.size(); i++) {
 			if (inner_potentials[i] > 0) result[i] = inner_potentials[i];
 		}
@@ -854,6 +858,7 @@ private:
 	*/
 	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
 		std::vector<double> result(neuron_outputs.size(), 0); // ALLOC - I know the dimensions on init of NN
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < neuron_outputs.size(); i++) {
 			if (neuron_outputs[i] > 0) result[i] = 1;
 		}
@@ -871,12 +876,15 @@ private:
 		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
 		double denominator = 0.0;
 		double inner_max = inner_potentials[0];
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 1; i < inner_potentials.size(); i++)
 			if (inner_potentials[i] > inner_max) inner_max = inner_potentials[i];
 
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < result.size(); i++)
 			denominator += exp(inner_potentials[i] - inner_max);
 
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < inner_potentials.size(); i++)
 			result[i] = exp(inner_potentials[i] - inner_max) / denominator;
 
@@ -888,6 +896,7 @@ private:
 	*/
 	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
 		std::vector<double> result(neuron_outputs.size()); // ALLOC - I know the dimensions on init of NN
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < result.size(); i++) {
 			result[i] = neuron_outputs[i] - y_true[i];
 		}
