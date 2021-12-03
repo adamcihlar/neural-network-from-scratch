@@ -70,6 +70,7 @@ public:
 			if (normalize) normalizer = 255;
 
 			std::vector<double> int_vec(784);
+#pragma omp parallel for num_threads(NUM_THREADS)
 			while (std::getline(myfile, line))
 			{
 				std::stringstream sline(line);
@@ -200,7 +201,6 @@ public:
 
 		std::vector<std::vector<double>> X_shuffled(X_rows, std::vector<double>(X_cols)); // ALLOC
 		std::vector<double> y_shuffled(X_rows); // ALLOC
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < X_rows; i++) {
 			X_shuffled[i] = X[indexes[i]];
 			y_shuffled[i] = y[indexes[i]];
@@ -339,7 +339,6 @@ public:
 		cachedValues(nrow, std::vector<double>(ncol)), 
 		shape({ nrow, ncol }) {
 		NormalRandomGenerator randgen(mean, std);
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < shape[0]; i++) {
 			for (size_t j = 0; j < shape[1]; j++) {
 				values[i][j] = randgen.get_sample();
@@ -642,7 +641,6 @@ public:
 	*/
 	std::vector<double> one_hot_decode(std::vector<std::vector<double>> one_hot_labels) {
 		std::vector<double> labels(one_hot_labels.size()); // ALLOC - dims depend on n_rows of dataset
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < one_hot_labels.size(); i++) {
 			std::vector<double>::iterator result = std::max_element(one_hot_labels[i].begin(), one_hot_labels[i].end());
 			labels[i] = std::distance(one_hot_labels[i].begin(), result);
