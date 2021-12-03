@@ -86,7 +86,6 @@ public:
 
 				res_mat.push_back(int_vec);
 				rowcount++;
-				if (rowcount % 1000 == 0) std::cout << rowcount << std::endl;
 			}
 
 			if (rowcount > 0) {
@@ -119,7 +118,6 @@ public:
 			while (myfile >> element) {
 				res_vec.push_back(element);
 				rowcount++;
-				if (rowcount % 1000 == 0) std::cout << rowcount << std::endl;
 			}
 
 			if (rowcount > 0) {
@@ -1339,7 +1337,7 @@ int main() {
 
 	std::srand(42);
 
-	int batch_size = 64;
+	int batch_size = 16;
 	double learning_rate = 0.001;
 
 	Dataset train;
