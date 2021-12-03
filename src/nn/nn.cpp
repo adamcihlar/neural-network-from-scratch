@@ -1055,6 +1055,7 @@ class Accuracy :public Metric {
 public:
 	double calculate_metric_for_batch(Matrix* Y_true, Matrix* Y_pred) {
 		count_true_in_batch = 0.0;
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < Y_true->get_shape()[0]; i++) {
 			count_true_in_batch += (Y_true->get_values()[i] == Y_pred->get_values()[i]);
 		}
