@@ -1339,14 +1339,14 @@ int main() {
 
 	std::srand(42);
 
-	int batch_size = 32;
+	int batch_size = 64;
 	double learning_rate = 0.001;
 
 	Dataset train;
-	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	//train.load_labels("data/fashion_mnist_train_labels.csv");
-	train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
-	train.load_labels("data/fashion_mnist_train_labels_00.csv");
+	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	train.load_labels("data/fashion_mnist_train_labels.csv");
+	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
+	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
 	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
@@ -1367,7 +1367,7 @@ int main() {
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2 }, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(8, &train_loader, &validation_loader);
+	nn.train(1, &train_loader, &validation_loader);
 
 	Dataset test;
 	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
@@ -1376,7 +1376,7 @@ int main() {
 	test.save_labels("data/actualTestPredictions");
 
 	Dataset infer_train;
-	infer_train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
+	infer_train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
 	DataLoader infer_train_loader(&infer_train);
 	nn.predict(&infer_train_loader);
 	infer_train.save_labels("data/trainPredictions");
