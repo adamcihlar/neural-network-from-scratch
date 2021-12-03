@@ -1140,7 +1140,6 @@ public:
 		// and get rid off this while
 		prediction_dataloader->reset();
 
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < n_predictions; i++) {
 			Batch batch = prediction_dataloader->get_one_sample();
 			forward_pass(batch, false);
@@ -1230,6 +1229,7 @@ private:
 		oneHotPredictions.set_values(std::vector<std::vector<double>>(neuronsOutputs[countLayers].get_shape()[0], std::vector<double>(neuronsOutputs[countLayers].get_shape()[1])));
 		double max = 0;
 		int argmax = 0;
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < oneHotPredictions.get_shape()[0]; i++) {
 			max = 0;
 			argmax = 0;
