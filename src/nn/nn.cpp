@@ -1141,7 +1141,7 @@ public:
 		prediction_dataloader->reset();
 
 		for (size_t i = 0; i < n_predictions; i++) {
-			Batch batch = prediction_dataloader->get_sample();
+			//Batch batch = prediction_dataloader->get_sample();
 			//forward_pass(batch, false);
 			//one_hot_predictions[i] = batch_output_probabilities_to_predictions()->get_values()[0];
 		}
