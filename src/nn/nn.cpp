@@ -589,8 +589,8 @@ public:
 		rowsGiven += batchSize;
 		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 
-		X_sample.set_values(sourceDataset->get_subset_X(rowsGiven - batchSize, rowsGiven));
-		y_sample.set_values((one_hot_encode(sourceDataset->get_subset_y(rowsGiven - batchSize, rowsGiven))));
+		//X_sample.set_values(sourceDataset->get_subset_X(rowsGiven - batchSize, rowsGiven));
+		//y_sample.set_values((one_hot_encode(sourceDataset->get_subset_y(rowsGiven - batchSize, rowsGiven))));
 
 		sample = { &X_sample, &y_sample };
 		return sample;
