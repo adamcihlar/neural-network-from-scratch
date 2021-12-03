@@ -16,6 +16,10 @@
 #include <algorithm>
 #include <ctime>
 
+// Hack
+#include <omp.h>
+
+int NUM_THREADS = 4;
 int CLASSES = 10;
 
 
@@ -395,6 +399,7 @@ public:
 			int ncols2 = second->get_shape()[1];
 			Matrix result(nrows1, ncols2);
 
+			#pragma omp parallel for num_threads(4)
 			for (int i = 0; i < nrows1; i++) {
 				for (int k = 0; k < nrows2; k++) {
 					for (int j = 0; j < ncols2; j++) {
@@ -410,7 +415,7 @@ public:
 		}
 	}
 
-	/** 
+	/**
 	* Sum two matrices with same shape
 	*/
 	Matrix sum(Matrix* second) {
@@ -446,7 +451,7 @@ public:
 		}
 	}
 
-	/** 
+	/**
 	* Elementwise multiplication by another matrix (with same shape)
 	* or by vector with corresponding lenght (equal to ncols).
 	*/
@@ -492,7 +497,7 @@ public:
 		return Matrix(cachedValues);
 	}
 
-	/** 
+	/**
 	* Elementwise multiplication by single value.
 	*/
 	Matrix scalar_mul(double multiplier) {
@@ -504,7 +509,7 @@ public:
 		return Matrix(cachedValues);
 	}
 
-	/** 
+	/**
 	* Returns new transposed matrix.
 	*/
 	Matrix get_transposed() {
@@ -518,7 +523,7 @@ public:
 		return result;
 	}
 
-	/** 
+	/**
 	* Sums columns and returns it as new Matrix.
 	*/
 	Matrix col_sums() {
@@ -541,7 +546,7 @@ private:
 * Structure for passing input features in batches together with labels to the NeuralNetwork.
 */
 struct Batch {
-	Matrix* X,* Y;
+	Matrix* X, * Y;
 };
 
 
@@ -948,8 +953,9 @@ public:
 				previousBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate).sum(previousBiasUpdate[i].scalar_mul(momentumAlpha));
 				currentBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate).sum(previousBiasUpdate[i].scalar_mul(momentumAlpha));
 			}
-		return currentBiasUpdate;
-		} else if (momentumAlpha == 0.0) {
+			return currentBiasUpdate;
+		}
+		else if (momentumAlpha == 0.0) {
 			for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
 				currentBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate);
 			}
@@ -972,7 +978,8 @@ public:
 				currentWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate).sum(previousWeightsUpdate[i].scalar_mul(momentumAlpha));
 			}
 			return currentWeightsUpdate;
-		} else if (momentumAlpha == 0.0) {
+		}
+		else if (momentumAlpha == 0.0) {
 			for (size_t i = 0; i < currentWeightsUpdate.size(); i++) {
 				currentWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate);
 			}
@@ -1074,9 +1081,9 @@ public:
 		}
 	}
 
-	
+
 	/**
-	* Changes network's state (weights) by training for n epochs on train dataset 
+	* Changes network's state (weights) by training for n epochs on train dataset
 	* and validates the results after every epoch.
 	* Displays basic info about the training.
 	* Reshuffles train dataset at the beginning of every epoch if desired.
@@ -1310,12 +1317,12 @@ int main() {
 	double learning_rate = 0.0005;
 
 	Dataset train;
-	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	train.load_labels("data/fashion_mnist_train_labels.csv");
+	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	//train.load_labels("data/fashion_mnist_train_labels.csv");
 	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
-	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
-	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
+	train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
+	train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
 	Dataset validation = train.separate_validation_dataset(0.2);
 
@@ -1332,7 +1339,7 @@ int main() {
 	Accuracy acc;
 
 
-	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
+	NeuralNetwork nn({ &layer0, &layer1, &layer2 }, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
 	nn.train(1, &train_loader, &validation_loader);
 
