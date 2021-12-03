@@ -70,14 +70,12 @@ public:
 			if (normalize) normalizer = 255;
 
 			std::vector<double> int_vec(784);
-#pragma omp parallel for num_threads(NUM_THREADS)
 			while (std::getline(myfile, line))
 			{
 				std::stringstream sline(line);
 
 				int last_element_index = int_vec.size() - 1;
 
-#pragma omp parallel for num_threads(NUM_THREADS)
 				for (size_t i = 0; i < last_element_index; i++)
 				{
 					sline >> element >> delimiter;
