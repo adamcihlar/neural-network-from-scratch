@@ -1341,14 +1341,14 @@ int main() {
 
 	std::srand(42);
 
-	int batch_size = 16;
-	double learning_rate = 0.0005;
+	int batch_size = 32;
+	double learning_rate = 0.001;
 
 	Dataset train;
-	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	//train.load_labels("data/fashion_mnist_train_labels.csv");
-	train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
-	train.load_labels("data/fashion_mnist_train_labels_00.csv");
+	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	train.load_labels("data/fashion_mnist_train_labels.csv");
+	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
+	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
 	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
@@ -1362,7 +1362,7 @@ int main() {
 	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
-	SGD sgd(learning_rate, 0.95, true);
+	SGD sgd(learning_rate, 0.90, true);
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
@@ -1372,7 +1372,7 @@ int main() {
 	nn.train(1, &train_loader, &validation_loader);
 
 	Dataset test;
-	test.load_mnist_data("data/fashion_mnist_test_vectors_00.csv", true);
+	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
 	DataLoader test_loader(&test, 1);
 	nn.predict(&test_loader);
 	test.save_labels("data/actualTestPredictions");
