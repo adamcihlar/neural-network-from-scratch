@@ -976,8 +976,8 @@ public:
 			}
 			return currentBiasUpdate;
 		}
-		for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
 #pragma omp parallel for num_threads(NUM_THREADS)
+		for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
 			currentBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate).sum(previousBiasUpdate[i].scalar_mul(momentumAlpha));
 		}
 		previousBiasUpdate = currentBiasUpdate;
