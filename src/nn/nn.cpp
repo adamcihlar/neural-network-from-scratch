@@ -607,7 +607,7 @@ public:
 		Matrix X_mat(sourceDataset->get_subset_X(rowsGiven - 1, rowsGiven)); // ALLOC - dims known on init of DataLoader
 		Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y(rowsGiven - 1, rowsGiven))); // ALLOC - dims known on init of DataLoader
 
-		Batch sample = { &X_mat, &Y_mat };
+		sample = { &X_mat, &Y_mat };
 		return sample;
 	}
 
@@ -618,7 +618,7 @@ public:
 		Matrix X_mat(sourceDataset->get_subset_X()); // ALLOC - dims known on init of DataLoader
 		Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y())); // ALLOC - dims known on init of DataLoader
 
-		Batch sample = { &X_mat, &Y_mat };
+		sample = { &X_mat, &Y_mat };
 		return sample;
 	}
 
@@ -1141,7 +1141,7 @@ public:
 		prediction_dataloader->reset();
 
 		for (size_t i = 0; i < n_predictions; i++) {
-			//Batch batch = prediction_dataloader->get_sample();
+			Batch batch = prediction_dataloader->get_sample();
 			//forward_pass(batch, false);
 			//one_hot_predictions[i] = batch_output_probabilities_to_predictions()->get_values()[0];
 		}
