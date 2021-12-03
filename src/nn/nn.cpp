@@ -590,7 +590,7 @@ public:
 		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 
 		X_sample.set_values(sourceDataset->get_subset_X(rowsGiven - batchSize, rowsGiven));
-		//y_sample.set_values((one_hot_encode(sourceDataset->get_subset_y(rowsGiven - batchSize, rowsGiven))));
+		y_sample.set_values((one_hot_encode(sourceDataset->get_subset_y(rowsGiven - batchSize, rowsGiven))));
 
 		sample = { &X_sample, &y_sample };
 		return sample;
@@ -604,10 +604,10 @@ public:
 		rowsGiven += 1;
 		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 
-		Matrix X_mat(sourceDataset->get_subset_X(rowsGiven - 1, rowsGiven)); // ALLOC - dims known on init of DataLoader
-		Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y(rowsGiven - 1, rowsGiven))); // ALLOC - dims known on init of DataLoader
+		X_sample.set_values(sourceDataset->get_subset_X(rowsGiven - batchSize, rowsGiven));
+		//Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y(rowsGiven - 1, rowsGiven))); // ALLOC - dims known on init of DataLoader
 
-		sample = { &X_mat, &Y_mat };
+		sample = { &X_sample, &y_sample };
 		return sample;
 	}
 
