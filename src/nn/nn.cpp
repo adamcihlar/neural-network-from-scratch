@@ -1337,8 +1337,8 @@ int main() {
 
 	std::srand(42);
 
-	int batch_size = 32;
-	double learning_rate = 0.002;
+	int batch_size = 64;
+	double learning_rate = 0.001;
 
 	Dataset train;
 	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
@@ -1353,7 +1353,7 @@ int main() {
 	DataLoader train_loader(&train, batch_size);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 256, 0.15, 0.0001);
+	Layer layer0(train.get_X_cols(), 256, 0.15, 0.00001);
 	Layer layer1(256, 64, 0.0, 0.00001);
 	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
