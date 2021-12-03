@@ -1334,7 +1334,7 @@ int main() {
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(4, &train_loader, &validation_loader);
+	nn.train(1, &train_loader, &validation_loader);
 
 	Dataset test;
 	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
