@@ -1338,7 +1338,7 @@ int main() {
 
 	std::srand(42);
 
-	int batch_size = 64;
+	int batch_size = 16;
 	double learning_rate = 0.0005;
 
 	Dataset train;
@@ -1366,7 +1366,7 @@ int main() {
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2 }, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(1, &train_loader, &validation_loader);
+	nn.train(20, &train_loader, &validation_loader);
 
 	//Dataset test;
 	//test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
