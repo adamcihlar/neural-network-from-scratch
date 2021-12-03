@@ -918,6 +918,7 @@ public:
 	*/
 	double calculate_mean_batch_loss(Matrix* Y_true, Matrix* Y_pred) {
 		batch_loss = 0.0;
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < Y_true->get_shape()[0]; i++) {
 			batch_loss += calculate_loss(Y_true->get_values()[i], Y_pred->get_values()[i]);
 		}
