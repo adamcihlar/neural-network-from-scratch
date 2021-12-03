@@ -194,12 +194,14 @@ public:
 	void shuffle() {
 		std::vector<int> indexes; // ALLOC - dims known on init of Dataset
 		indexes.reserve(X.size());
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < X.size(); ++i)
 			indexes.push_back(i);
 		std::random_shuffle(indexes.begin(), indexes.end());
 
 		std::vector<std::vector<double>> X_shuffled(X_rows, std::vector<double>(X_cols)); // ALLOC
 		std::vector<double> y_shuffled(X_rows); // ALLOC
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < X_rows; i++) {
 			X_shuffled[i] = X[indexes[i]];
 			y_shuffled[i] = y[indexes[i]];
