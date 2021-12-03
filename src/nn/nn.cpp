@@ -846,6 +846,7 @@ private:
 	*/
 	std::vector<double> evaluate_layer(std::vector<double> inner_potentials) {
 		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < inner_potentials.size(); i++) {
 			if (inner_potentials[i] > 0) result[i] = inner_potentials[i];
 		}
@@ -857,6 +858,7 @@ private:
 	*/
 	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
 		std::vector<double> result(neuron_outputs.size(), 0); // ALLOC - I know the dimensions on init of NN
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < neuron_outputs.size(); i++) {
 			if (neuron_outputs[i] > 0) result[i] = 1;
 		}
@@ -874,12 +876,15 @@ private:
 		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
 		double denominator = 0.0;
 		double inner_max = inner_potentials[0];
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 1; i < inner_potentials.size(); i++)
 			if (inner_potentials[i] > inner_max) inner_max = inner_potentials[i];
 
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < result.size(); i++)
 			denominator += exp(inner_potentials[i] - inner_max);
 
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < inner_potentials.size(); i++)
 			result[i] = exp(inner_potentials[i] - inner_max) / denominator;
 
@@ -891,6 +896,7 @@ private:
 	*/
 	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
 		std::vector<double> result(neuron_outputs.size()); // ALLOC - I know the dimensions on init of NN
+#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < result.size(); i++) {
 			result[i] = neuron_outputs[i] - y_true[i];
 		}
@@ -912,7 +918,6 @@ public:
 	*/
 	double calculate_mean_batch_loss(Matrix* Y_true, Matrix* Y_pred) {
 		batch_loss = 0.0;
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < Y_true->get_shape()[0]; i++) {
 			batch_loss += calculate_loss(Y_true->get_values()[i], Y_pred->get_values()[i]);
 		}
@@ -1018,7 +1023,6 @@ public:
 	* Prepares the optimizer for training by setting the initial updates.
 	*/
 	void set_weights_update_dimensions(std::vector<Layer*> nn_layers) {
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < nn_layers.size(); i++) {
 			currentBiasUpdate.push_back(Matrix(nn_layers[i]->get_bias_shape()[0], nn_layers[i]->get_bias_shape()[1]));
 			previousBiasUpdate.push_back(Matrix(nn_layers[i]->get_bias_shape()[0], nn_layers[i]->get_bias_shape()[1]));
@@ -1050,7 +1054,6 @@ class Accuracy :public Metric {
 public:
 	double calculate_metric_for_batch(Matrix* Y_true, Matrix* Y_pred) {
 		count_true_in_batch = 0.0;
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < Y_true->get_shape()[0]; i++) {
 			count_true_in_batch += (Y_true->get_values()[i] == Y_pred->get_values()[i]);
 		}
@@ -1335,7 +1338,7 @@ int main() {
 
 	std::srand(42);
 
-	int batch_size = 8;
+	int batch_size = 16;
 	double learning_rate = 0.0005;
 
 	Dataset train;
