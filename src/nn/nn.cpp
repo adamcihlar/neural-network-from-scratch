@@ -387,18 +387,18 @@ public:
 	/** 
 	* Matrix multiplication
 	*/
-	Matrix dot(Matrix* second) {
+	Matrix dot(Matrix& second) {
 		int ncols1 = get_shape()[1];
-		int nrows2 = second->get_shape()[0];
+		int nrows2 = second.get_shape()[0];
 		if (ncols1 == nrows2) {
 			int nrows1 = get_shape()[0];
-			int ncols2 = second->get_shape()[1];
+			int ncols2 = second.get_shape()[1];
 			Matrix result(nrows1, ncols2);
 
 			for (int i = 0; i < nrows1; i++) {
 				for (int k = 0; k < nrows2; k++) {
 					for (int j = 0; j < ncols2; j++) {
-						result.values[i][j] += values[i][k] * second->values[k][j];
+						result.values[i][j] += values[i][k] * second.values[k][j];
 					}
 				}
 			}
@@ -413,23 +413,7 @@ public:
 	/** 
 	* Sum two matrices with same shape
 	*/
-	Matrix sum(Matrix* second) {
-		if (get_shape() == second->get_shape()) {
-			int nrow = get_shape()[0];
-			int ncol = get_shape()[1];
-			for (int i = 0; i < nrow; i++) {
-				for (int j = 0; j < ncol; j++) {
-					cachedValues[i][j] = values[i][j] + second->values[i][j];
-				}
-			}
-			return Matrix(cachedValues);
-		}
-		else {
-			std::cerr << "Nonconformable dimensions, both dimensions must match.\n";
-			return Matrix();
-		}
-	}
-	Matrix sum(Matrix second) {
+	Matrix sum(Matrix& second) {
 		if (get_shape() == second.get_shape()) {
 			int nrow = get_shape()[0];
 			int ncol = get_shape()[1];
@@ -450,28 +434,7 @@ public:
 	* Elementwise multiplication by another matrix (with same shape)
 	* or by vector with corresponding lenght (equal to ncols).
 	*/
-	Matrix multiply(Matrix* multiplier) {
-		if (multiplier->get_shape()[0] == 1 && shape[1] == multiplier->get_shape()[1]) {
-			for (size_t i = 0; i < shape[0]; i++) {
-				for (size_t j = 0; j < shape[1]; j++) {
-					cachedValues[i][j] = values[i][j] * multiplier->get_values()[0][j];
-				}
-			}
-		}
-		else if (multiplier->get_shape() == shape) {
-			for (size_t i = 0; i < shape[0]; i++) {
-				for (size_t j = 0; j < shape[1]; j++) {
-					cachedValues[i][j] = values[i][j] * multiplier->get_values()[i][j];
-				}
-			}
-		}
-		else {
-			std::cerr << "Nonconformable dimensions, multiplier must be either vector of shape (1, matrix.ncol) or matrix with matching dimensions.\n";
-		}
-		return Matrix(cachedValues);
-	}
-
-	Matrix multiply(Matrix multiplier) {
+	Matrix multiply(Matrix& multiplier) {
 		if (multiplier.get_shape()[0] == 1 && shape[1] == multiplier.get_shape()[1]) {
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
@@ -723,10 +686,10 @@ public:
 			for (size_t i = 0; i < weightsShape[1]; i++) {
 				dropoutMask.set_value(0, i, b_rand.get_sample() / (1 - dropout));
 			}
-			return Matrix(inputs->dot(&weights).sum(&w0ext).multiply(&dropoutMask)); // ALLOC - dims known when calling nn.train / nn.predict
+			return Matrix(inputs->dot(weights).sum(w0ext).multiply(dropoutMask)); // ALLOC - dims known when calling nn.train / nn.predict
 		}
 		else {
-			return Matrix(inputs->dot(&weights).sum(&w0ext)); // ALLOC - dims known when calling nn.train / nn.predict
+			return Matrix(inputs->dot(weights).sum(w0ext)); // ALLOC - dims known when calling nn.train / nn.predict
 		}
 	}
 
@@ -1163,12 +1126,12 @@ private:
 	void backward_pass(Batch batch) {
 		deltas[countLayers - 1].set_values(activationFunctions[countLayers - 1]->derive_batch(&neuronsOutputs[countLayers], batch.Y).get_values());
 
-		weightsGradients[countLayers - 1] = neuronsOutputs[countLayers - 1].get_transposed().dot(&deltas[countLayers - 1]);
+		weightsGradients[countLayers - 1] = neuronsOutputs[countLayers - 1].get_transposed().dot(deltas[countLayers - 1]);
 		biasGradients[countLayers - 1] = deltas[countLayers - 1].col_sums();
 
 		for (int i = countLayers - 2; i >= 0; i--) {
-			deltas[i] = activationFunctions[i]->derive_batch(&innerPotentials[i]).multiply(deltas[i + 1].dot(&layers[i + 1]->get_weights().get_transposed()));
-			weightsGradients[i] = neuronsOutputs[i].get_transposed().dot(&deltas[i]);
+			deltas[i] = activationFunctions[i]->derive_batch(&innerPotentials[i]).multiply(deltas[i + 1].dot(layers[i + 1]->get_weights().get_transposed()));
+			weightsGradients[i] = neuronsOutputs[i].get_transposed().dot(deltas[i]);
 			biasGradients[i] = deltas[i].col_sums();
 		}
 	}
@@ -1185,8 +1148,8 @@ private:
 	*/
 	void update_layers(std::vector<Matrix> bias_update, std::vector<Matrix> weights_update) {
 		for (size_t i = 0; i < countLayers; i++) {
-			layers[i]->set_bias(layers[i]->get_bias().sum(&bias_update[i]));
-			layers[i]->set_weights(layers[i]->get_weights().sum(&weights_update[i]));
+			layers[i]->set_bias(layers[i]->get_bias().sum(bias_update[i]));
+			layers[i]->set_weights(layers[i]->get_weights().sum(weights_update[i]));
 		}
 	}
 
@@ -1312,8 +1275,8 @@ int main() {
 	Dataset train;
 	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
 	train.load_labels("data/fashion_mnist_train_labels.csv");
-//        train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
-//        train.load_labels("data/fashion_mnist_train_labels_00.csv");
+	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
+	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
 	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
 	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 

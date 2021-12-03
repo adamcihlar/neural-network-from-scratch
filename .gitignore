@@ -374,3 +374,6 @@ trainPredictions
 actualTestPredictions
 
 src/nn/nn
+
+kcachegrind
+callgrind*
