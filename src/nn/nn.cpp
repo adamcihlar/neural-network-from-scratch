@@ -1355,11 +1355,11 @@ int main() {
 
 	Dataset validation = train.separate_validation_dataset(0.1);
 
-	DataLoader train_loader(&train, batch_size, 3);
+	DataLoader train_loader(&train, batch_size, 0);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 256, 0.15, 0.0001);
-	Layer layer1(256, 64, 0.0, 0.00001);
+	Layer layer0(train.get_X_cols(), 256, 0.2, 0.00000);
+	Layer layer1(256, 64, 0.0, 0.000000);
 	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
@@ -1367,22 +1367,21 @@ int main() {
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
-
 	NeuralNetwork nn({ &layer0, &layer1, &layer2 }, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(1, &train_loader, &validation_loader, false);
+	nn.train(10, &train_loader, &validation_loader, true);
 
-	//Dataset test;
-	//test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
-	//DataLoader test_loader(&test, 1);
-	//nn.predict(&test_loader);
-	//test.save_labels("data/actualTestPredictions");
+	Dataset test;
+	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
+	DataLoader test_loader(&test, 1);
+	nn.predict(&test_loader);
+	test.save_labels("data/actualTestPredictions");
 
-	//Dataset infer_train;
-	//infer_train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	//DataLoader infer_train_loader(&infer_train, 1);
-	//nn.predict(&infer_train_loader);
-	//infer_train.save_labels("data/trainPredictions");
+	Dataset infer_train;
+	infer_train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	DataLoader infer_train_loader(&infer_train, 1);
+	nn.predict(&infer_train_loader);
+	infer_train.save_labels("data/trainPredictions");
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
