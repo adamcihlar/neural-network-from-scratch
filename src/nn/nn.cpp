@@ -505,6 +505,7 @@ public:
 	* Elementwise multiplication by single value.
 	*/
 	Matrix scalar_mul(double multiplier) {
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < shape[0]; i++) {
 			for (size_t j = 0; j < shape[1]; j++) {
 				cachedValues[i][j] = values[i][j] * multiplier;
