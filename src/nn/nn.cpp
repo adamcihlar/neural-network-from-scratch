@@ -1129,7 +1129,7 @@ public:
 			display_validation_metrics_from_last_epoch();
 			std::cout << std::endl;
 			if (early_stopping && epochsDone > 3) {
-				if (validationMetricInEpoch[i-3] > validationMetricInEpoch[i]) return;
+				if ((validationLossInEpoch[i-2] < validationLossInEpoch[i]) && (validationLossInEpoch[i-1] < validationLossInEpoch[i])) return;
 			}
 		}
 	}
@@ -1350,7 +1350,7 @@ int main() {
 
 	std::srand(42);
 
-	int batch_size = 32;
+	int batch_size = 16;
 	double learning_rate = 0.001;
 
 	Dataset train;
@@ -1366,8 +1366,8 @@ int main() {
 	DataLoader train_loader(&train, batch_size, 3);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 256, 0.15, 0.0001);
-	Layer layer1(256, 64, 0.0, 0.00001);
+	Layer layer0(train.get_X_cols(), 256, 0.15, 0);
+	Layer layer1(256, 64, 0.0, 0);
 	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
@@ -1380,17 +1380,17 @@ int main() {
 
 	nn.train(20, &train_loader, &validation_loader, true);
 
-	//Dataset test;
-	//test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
-	//DataLoader test_loader(&test, 1);
-	//nn.predict(&test_loader);
-	//test.save_labels("data/actualTestPredictions");
+	Dataset test;
+	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
+	DataLoader test_loader(&test, 1);
+	nn.predict(&test_loader);
+	test.save_labels("data/actualTestPredictions");
 
-	//Dataset infer_train;
-	//infer_train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	//DataLoader infer_train_loader(&infer_train);
-	//nn.predict(&infer_train_loader);
-	//infer_train.save_labels("data/trainPredictions");
+	Dataset infer_train;
+	infer_train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	DataLoader infer_train_loader(&infer_train, 1);
+	nn.predict(&infer_train_loader);
+	infer_train.save_labels("data/trainPredictions");
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
