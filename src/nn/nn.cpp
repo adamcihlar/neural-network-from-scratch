@@ -397,7 +397,7 @@ public:
 			int ncols2 = second->get_shape()[1];
 			Matrix result(nrows1, ncols2);
 
-#pragma omp parallel for num_threads(NUM_THREADS)
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (int i = 0; i < nrows1; i++) {
 				for (int k = 0; k < nrows2; k++) {
 					for (int j = 0; j < ncols2; j++) {
@@ -420,7 +420,7 @@ public:
 		if (get_shape() == second->get_shape()) {
 			int nrow = get_shape()[0];
 			int ncol = get_shape()[1];
-#pragma omp parallel for num_threads(NUM_THREADS)
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (int i = 0; i < nrow; i++) {
 				for (int j = 0; j < ncol; j++) {
 					cachedValues[i][j] = values[i][j] + second->values[i][j];
@@ -437,7 +437,7 @@ public:
 		if (get_shape() == second.get_shape()) {
 			int nrow = get_shape()[0];
 			int ncol = get_shape()[1];
-#pragma omp parallel for num_threads(NUM_THREADS)
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (int i = 0; i < nrow; i++) {
 				for (int j = 0; j < ncol; j++) {
 					cachedValues[i][j] = values[i][j] + second.values[i][j];
@@ -457,7 +457,7 @@ public:
 	*/
 	Matrix multiply(Matrix* multiplier) {
 		if (multiplier->get_shape()[0] == 1 && shape[1] == multiplier->get_shape()[1]) {
-#pragma omp parallel for num_threads(NUM_THREADS)
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier->get_values()[0][j];
@@ -465,7 +465,7 @@ public:
 			}
 		}
 		else if (multiplier->get_shape() == shape) {
-#pragma omp parallel for num_threads(NUM_THREADS)
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier->get_values()[i][j];
@@ -480,7 +480,7 @@ public:
 
 	Matrix multiply(Matrix multiplier) {
 		if (multiplier.get_shape()[0] == 1 && shape[1] == multiplier.get_shape()[1]) {
-#pragma omp parallel for num_threads(NUM_THREADS)
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier.get_values()[0][j];
@@ -488,7 +488,7 @@ public:
 			}
 		}
 		else if (multiplier.get_shape() == shape) {
-#pragma omp parallel for num_threads(NUM_THREADS)
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier.get_values()[i][j];
@@ -505,7 +505,7 @@ public:
 	* Elementwise multiplication by single value.
 	*/
 	Matrix scalar_mul(double multiplier) {
-#pragma omp parallel for num_threads(NUM_THREADS)
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < shape[0]; i++) {
 			for (size_t j = 0; j < shape[1]; j++) {
 				cachedValues[i][j] = values[i][j] * multiplier;
@@ -519,7 +519,7 @@ public:
 	*/
 	Matrix get_transposed() {
 		std::vector<std::vector<double>> transposed(shape[1], std::vector<double>(shape[0]));
-#pragma omp parallel for num_threads(NUM_THREADS)
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < transposed.size(); i++) {
 			for (size_t j = 0; j < transposed[i].size(); j++) {
 				transposed[i][j] = values[j][i];
@@ -534,7 +534,7 @@ public:
 	*/
 	Matrix col_sums() {
 		std::vector<double> sums(shape[1]);
-#pragma omp parallel for num_threads(NUM_THREADS)
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < shape[0]; i++)
 			for (size_t j = 0; j < shape[1]; j++)
 				sums[j] += values[i][j];
@@ -626,7 +626,7 @@ public:
 	*/
 	std::vector<std::vector<double>> one_hot_encode(std::vector<double> labels) {
 		std::vector<std::vector<double>> one_hot_labels(labels.size(), std::vector<double>(CLASSES));
-#pragma omp parallel for num_threads(NUM_THREADS)
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < labels.size(); i++) {
 			one_hot_labels[i][labels[i]] = 1;
 		}
@@ -639,7 +639,7 @@ public:
 	*/
 	std::vector<double> one_hot_decode(std::vector<std::vector<double>> one_hot_labels) {
 		std::vector<double> labels(one_hot_labels.size()); // ALLOC - dims depend on n_rows of dataset
-#pragma omp parallel for num_threads(NUM_THREADS)
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < one_hot_labels.size(); i++) {
 			std::vector<double>::iterator result = std::max_element(one_hot_labels[i].begin(), one_hot_labels[i].end());
 			labels[i] = std::distance(one_hot_labels[i].begin(), result);
@@ -738,13 +738,13 @@ public:
 			w0ext = Matrix(inputs_nrow, w0Shape[1]);
 		}
 
-#pragma omp parallel for num_threads(NUM_THREADS)
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < inputs_nrow; i++)
 			w0ext.set_row(i, w0.get_values()[0]);
 
 		if (dropout != 0.0 && dropout_switch_on) {
 			BernoulliGenerator b_rand(1 - dropout);
-#pragma omp parallel for num_threads(NUM_THREADS)
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < weightsShape[1]; i++) {
 				dropoutMask.set_value(0, i, b_rand.get_sample() / (1 - dropout));
 			}
@@ -852,7 +852,6 @@ private:
 	*/
 	std::vector<double> evaluate_layer(std::vector<double> inner_potentials) {
 		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < inner_potentials.size(); i++) {
 			if (inner_potentials[i] > 0) result[i] = inner_potentials[i];
 		}
@@ -864,7 +863,6 @@ private:
 	*/
 	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
 		std::vector<double> result(neuron_outputs.size(), 0); // ALLOC - I know the dimensions on init of NN
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < neuron_outputs.size(); i++) {
 			if (neuron_outputs[i] > 0) result[i] = 1;
 		}
@@ -882,15 +880,12 @@ private:
 		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
 		double denominator = 0.0;
 		double inner_max = inner_potentials[0];
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 1; i < inner_potentials.size(); i++)
 			if (inner_potentials[i] > inner_max) inner_max = inner_potentials[i];
 
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < result.size(); i++)
 			denominator += exp(inner_potentials[i] - inner_max);
 
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < inner_potentials.size(); i++)
 			result[i] = exp(inner_potentials[i] - inner_max) / denominator;
 
@@ -902,7 +897,6 @@ private:
 	*/
 	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
 		std::vector<double> result(neuron_outputs.size()); // ALLOC - I know the dimensions on init of NN
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < result.size(); i++) {
 			result[i] = neuron_outputs[i] - y_true[i];
 		}
@@ -924,7 +918,7 @@ public:
 	*/
 	double calculate_mean_batch_loss(Matrix* Y_true, Matrix* Y_pred) {
 		batch_loss = 0.0;
-#pragma omp parallel for num_threads(NUM_THREADS)
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < Y_true->get_shape()[0]; i++) {
 			batch_loss += calculate_loss(Y_true->get_values()[i], Y_pred->get_values()[i]);
 		}
@@ -1061,7 +1055,6 @@ class Accuracy :public Metric {
 public:
 	double calculate_metric_for_batch(Matrix* Y_true, Matrix* Y_pred) {
 		count_true_in_batch = 0.0;
-#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < Y_true->get_shape()[0]; i++) {
 			count_true_in_batch += (Y_true->get_values()[i] == Y_pred->get_values()[i]);
 		}
@@ -1257,7 +1250,7 @@ private:
 	*/
 	void display_train_metrics_from_last_epoch() {
 		std::cout << "Train loss: " << trainLossInEpoch[epochsDone - 1] << std::endl;
-		std::cout << "Train metric: " << trainMetricInEpoch[epochsDone - 1] << std::endl;
+		//std::cout << "Train metric: " << trainMetricInEpoch[epochsDone - 1] << std::endl;
 	}
 
 	/**
@@ -1265,7 +1258,7 @@ private:
 	*/
 	void display_validation_metrics_from_last_epoch() {
 		std::cout << "Validation loss: " << validationLossInEpoch[epochsDone - 1] << std::endl;
-		std::cout << "Validation metric: " << validationMetricInEpoch[epochsDone - 1] << std::endl;
+		//std::cout << "Validation metric: " << validationMetricInEpoch[epochsDone - 1] << std::endl;
 	}
 
 	/**
@@ -1294,7 +1287,7 @@ private:
 		}
 		int _iter_in_epoch = 0;
 		double _epoch_sum_of_average_batch_losses = 0;
-		double _epoch_sum_of_average_batch_metric = 0;
+		//double _epoch_sum_of_average_batch_metric = 0;
 		while (!train_dataloader->is_exhausted()) {
 			Batch batch = train_dataloader->get_sample(); // ALLOC
 
@@ -1303,11 +1296,11 @@ private:
 			optimize();
 
 			_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, &neuronsOutputs[countLayers]);
-			_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
+			//_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
 			_iter_in_epoch++;
 		}
 		trainLossInEpoch.push_back(_epoch_sum_of_average_batch_losses / _iter_in_epoch);
-		trainMetricInEpoch.push_back(_epoch_sum_of_average_batch_metric / _iter_in_epoch);
+		//trainMetricInEpoch.push_back(_epoch_sum_of_average_batch_metric / _iter_in_epoch);
 	}
 
 	/**
@@ -1326,7 +1319,7 @@ private:
 		}
 		int _iter_in_epoch = 0;
 		double _epoch_sum_of_average_batch_losses = 0;
-		double _epoch_sum_of_average_batch_metric = 0;
+		//double _epoch_sum_of_average_batch_metric = 0;
 		// would be nice to pass the whole validation dataset at once 
 		// and get rid off this while
 		// but the matrices would be probably too big
@@ -1336,11 +1329,11 @@ private:
 			forward_pass(batch, false);
 
 			_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, &neuronsOutputs[countLayers]);
-			_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
+			//_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
 			_iter_in_epoch++;
 		}
 		validationLossInEpoch.push_back(_epoch_sum_of_average_batch_losses / _iter_in_epoch);
-		validationMetricInEpoch.push_back(_epoch_sum_of_average_batch_metric / _iter_in_epoch);
+		//validationMetricInEpoch.push_back(_epoch_sum_of_average_batch_metric / _iter_in_epoch);
 	}
 };
 
@@ -1350,7 +1343,7 @@ int main() {
 
 	std::srand(42);
 
-	int batch_size = 16;
+	int batch_size = 32;
 	double learning_rate = 0.001;
 
 	Dataset train;
@@ -1366,8 +1359,8 @@ int main() {
 	DataLoader train_loader(&train, batch_size, 3);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 256, 0.15, 0);
-	Layer layer1(256, 64, 0.0, 0);
+	Layer layer0(train.get_X_cols(), 256, 0.15, 0.0001);
+	Layer layer1(256, 64, 0.0, 0.00001);
 	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
@@ -1378,19 +1371,19 @@ int main() {
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2 }, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(20, &train_loader, &validation_loader, true);
+	nn.train(1, &train_loader, &validation_loader, false);
 
-	Dataset test;
-	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
-	DataLoader test_loader(&test, 1);
-	nn.predict(&test_loader);
-	test.save_labels("data/actualTestPredictions");
+	//Dataset test;
+	//test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
+	//DataLoader test_loader(&test, 1);
+	//nn.predict(&test_loader);
+	//test.save_labels("data/actualTestPredictions");
 
-	Dataset infer_train;
-	infer_train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	DataLoader infer_train_loader(&infer_train, 1);
-	nn.predict(&infer_train_loader);
-	infer_train.save_labels("data/trainPredictions");
+	//Dataset infer_train;
+	//infer_train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	//DataLoader infer_train_loader(&infer_train, 1);
+	//nn.predict(&infer_train_loader);
+	//infer_train.save_labels("data/trainPredictions");
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
