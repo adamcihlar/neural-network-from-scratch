@@ -626,6 +626,7 @@ public:
 	*/
 	std::vector<std::vector<double>> one_hot_encode(std::vector<double> labels) {
 		std::vector<std::vector<double>> one_hot_labels(labels.size(), std::vector<double>(CLASSES));
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < labels.size(); i++) {
 			one_hot_labels[i][labels[i]] = 1;
 		}
@@ -638,6 +639,7 @@ public:
 	*/
 	std::vector<double> one_hot_decode(std::vector<std::vector<double>> one_hot_labels) {
 		std::vector<double> labels(one_hot_labels.size()); // ALLOC - dims depend on n_rows of dataset
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < one_hot_labels.size(); i++) {
 			std::vector<double>::iterator result = std::max_element(one_hot_labels[i].begin(), one_hot_labels[i].end());
 			labels[i] = std::distance(one_hot_labels[i].begin(), result);
