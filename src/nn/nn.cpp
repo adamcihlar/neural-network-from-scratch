@@ -19,7 +19,7 @@
 // Hack
 #include <omp.h>
 
-int NUM_THREADS = 8;
+int NUM_THREADS = 16;
 int CLASSES = 10;
 
 
@@ -1399,9 +1399,9 @@ int main() {
 	DataLoader train_loader(&train, batch_size, 0);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 256, 0.2, 0.0);
-	Layer layer1(256, 64, 0.0, 0.0);
-	Layer layer2(64, CLASSES, 0.0, 0.0);
+	Layer layer0(train.get_X_cols(), 512, 0.2, 0.0);
+	Layer layer1(512, 128, 0.0, 0.0);
+	Layer layer2(128, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
 	SGD sgd(learning_rate, 0.90, true, true);
