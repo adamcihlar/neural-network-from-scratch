@@ -19,7 +19,7 @@
 // Hack
 #include <omp.h>
 
-int NUM_THREADS = 16;
+int NUM_THREADS = 48;
 int CLASSES = 10;
 
 
@@ -956,6 +956,7 @@ public:
 	virtual std::vector<Matrix> calculate_bias_update(std::vector<Matrix> bias_grad) = 0;
 	virtual std::vector<Matrix> calculate_weights_update(std::vector<Matrix> weights_grad) = 0;
 	virtual void get_ready_for_optimization(std::vector<Layer*> nn_layers) = 0;
+	virtual void update_learning_rate(int n_epochs_done) = 0;
 private:
 	double learningRate;
 };
@@ -965,7 +966,12 @@ public:
 	/**
 	* Initialize SGD with learning rate, momentum and option of Nesterov momentum.
 	*/
-	SGD(double learning_rate, double momentum_alpha = 0.0, bool nesterov = false) : learningRate(learning_rate), momentumAlpha(momentum_alpha), nesterovMomentum(nesterov) {}
+	SGD(double learning_rate, double momentum_alpha = 0.0, bool nesterov = false, bool adaptive_learning_rate = false) : 
+		learningRate(learning_rate),
+		originalLearningRate(learning_rate),
+		adaptiveLearningRate(adaptive_learning_rate),
+		momentumAlpha(momentum_alpha), 
+		nesterovMomentum(nesterov) {}
 
 	/**
 	* Calclutes the bias update from the given gradient.
@@ -1019,6 +1025,12 @@ public:
 		set_weights_update_dimensions(nn_layers);
 	}
 
+	void update_learning_rate(int n_epochs_done) {
+		if (adaptiveLearningRate) {
+			learningRate = originalLearningRate / ((n_epochs_done + 5) / 5);
+		}
+	}
+
 	/**
 	* Prepares the optimizer for training by setting the initial updates.
 	*/
@@ -1033,6 +1045,8 @@ public:
 
 private:
 	double learningRate;
+	double originalLearningRate;
+	bool adaptiveLearningRate;
 	double momentumAlpha;
 	bool nesterovMomentum;
 	std::vector<Matrix> currentBiasUpdate;
@@ -1113,16 +1127,40 @@ public:
 	*/
 	void train(int epochs, DataLoader* train_dataset, DataLoader* validation_dataset, bool early_stopping, bool shuffle_train = true) {
 		for (int i = 0; i < epochs; i++) {
+
+			auto start = std::chrono::high_resolution_clock::now();
+
 			std::cout << "Epoch " << epochsDone + 1 << ":" << std::endl;
 			train_epoch(train_dataset, shuffle_train);
 			epochsDone++;
 			display_train_metrics_from_last_epoch();
 			validate_epoch(validation_dataset);
 			display_validation_metrics_from_last_epoch();
-			std::cout << std::endl;
+
+			layersHistory.push_back(layers);
+
 			if (early_stopping && epochsDone > 3) {
-				if ((validationLossInEpoch[i-2] < validationLossInEpoch[i-1]) && (validationLossInEpoch[i-1] < validationLossInEpoch[i])) return;
+				if (((validationLossInEpoch[i - 3] < validationLossInEpoch[i - 2]) &&
+					(validationLossInEpoch[i - 2] < validationLossInEpoch[i - 1]) &&
+					(validationLossInEpoch[i - 1] < validationLossInEpoch[i])) ||
+					(epochsDone == epochs)) {
+					double min = 99999;
+					double argmin = 0;
+					for (int i = 0; i < epochsDone; i++) {
+						if (validationLossInEpoch[i] < min) {
+							min = validationLossInEpoch[i];
+							argmin = i;
+						}
+					}
+					layers = layersHistory[argmin];
+				}
 			}
+
+			auto stop = std::chrono::high_resolution_clock::now();
+
+			auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+			std::cout << duration.count() << std::endl;
+			std::cout << std::endl;
 		}
 	}
 
@@ -1177,6 +1215,8 @@ private:
 	std::vector<double> validationLossInEpoch;
 	std::vector<double> trainMetricInEpoch;
 	std::vector<double> validationMetricInEpoch;
+
+	std::vector<std::vector<Layer*>> layersHistory;
 
 	/**
 	* Iterates over all layers and activation functions to get predictions from input features.
@@ -1278,6 +1318,7 @@ private:
 		if (shuffle) train_dataloader->shuffle_dataset();
 		train_dataloader->reset();
 		train_dataloader->update_batch_size(epochsDone);
+		optimizer->update_learning_rate(epochsDone);
 
 		get_ready(train_dataloader);
 
@@ -1342,7 +1383,7 @@ int main() {
 
 	std::srand(42);
 
-	int batch_size = 32;
+	int batch_size = 16;
 	double learning_rate = 0.001;
 
 	Dataset train;
@@ -1358,18 +1399,18 @@ int main() {
 	DataLoader train_loader(&train, batch_size, 0);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 256, 0.2, 0.00000);
-	Layer layer1(256, 64, 0.0, 0.000000);
+	Layer layer0(train.get_X_cols(), 256, 0.2, 0.0);
+	Layer layer1(256, 64, 0.0, 0.0);
 	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
-	SGD sgd(learning_rate, 0.90, true);
+	SGD sgd(learning_rate, 0.90, true, true);
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2 }, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(10, &train_loader, &validation_loader, true);
+	nn.train(2, &train_loader, &validation_loader, true, true);
 
 	Dataset test;
 	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
