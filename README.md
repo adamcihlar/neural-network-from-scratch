@@ -8,4 +8,4 @@
 	2. trains neural network
 	3. performs inference on test set
 	4. saves predicted labels from training and test set
-* The results (accuracy on train and test) are displayed
+* The results (accuracy on train and test) are displayed in the terminal
