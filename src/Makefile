@@ -7,5 +7,5 @@ run_nn:
 	./src/nn/nn
 
 evaluate:
-	python3 python_evaluator/evaluate.py data/actualTestPredictions data/fashion_mnist_test_labels.csv
-	python3 python_evaluator/evaluate.py data/trainPredictions data/fashion_mnist_train_labels.csv
+	python3 python_evaluator/evaluate.py actualTestPredictions data/fashion_mnist_test_labels.csv
+	python3 python_evaluator/evaluate.py trainPredictions data/fashion_mnist_train_labels.csv

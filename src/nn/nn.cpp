@@ -1,5 +1,4 @@
-﻿// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
-
+﻿
 // Dataset
 #include <iostream>
 #include <fstream>
@@ -19,7 +18,7 @@
 // Hack
 #include <omp.h>
 
-int NUM_THREADS = 16;
+int NUM_THREADS = 4;
 int CLASSES = 10;
 
 
@@ -166,7 +165,7 @@ public:
 		if (from >= to) return { {} };
 		std::vector<std::vector<double>>::const_iterator first = X.begin() + from;
 		std::vector<std::vector<double>>::const_iterator last = X.begin() + to;
-		std::vector<std::vector<double>> subset(first, last); // ALLOC - dims known on init of Dataloader
+		std::vector<std::vector<double>> subset(first, last); 
 
 		return subset;
 	}
@@ -180,7 +179,7 @@ public:
 		if (from >= to) return {};
 		std::vector<double>::const_iterator first = y.begin() + from;
 		std::vector<double>::const_iterator last = y.begin() + to;
-		std::vector<double> subset(first, last); // ALLOC - dims known on init of Dataloader
+		std::vector<double> subset(first, last); 
 
 		return subset;
 	}
@@ -189,14 +188,14 @@ public:
 	* Randomly changes order of input vectors and labels inplace while preserving the correct matching.
 	*/
 	void shuffle() {
-		std::vector<int> indexes; // ALLOC - dims known on init of Dataset
+		std::vector<int> indexes; 
 		indexes.reserve(X.size());
 		for (int i = 0; i < X.size(); ++i)
 			indexes.push_back(i);
 		std::random_shuffle(indexes.begin(), indexes.end());
 
-		std::vector<std::vector<double>> X_shuffled(X_rows, std::vector<double>(X_cols)); // ALLOC
-		std::vector<double> y_shuffled(X_rows); // ALLOC
+		std::vector<std::vector<double>> X_shuffled(X_rows, std::vector<double>(X_cols)); 
+		std::vector<double> y_shuffled(X_rows); 
 		for (int i = 0; i < X_rows; i++) {
 			X_shuffled[i] = X[indexes[i]];
 			y_shuffled[i] = y[indexes[i]];
@@ -603,7 +602,6 @@ public:
 		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 
 		X_sample.set_values(sourceDataset->get_subset_X(rowsGiven - 1, rowsGiven));
-		//Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y(rowsGiven - 1, rowsGiven))); // ALLOC - dims known on init of DataLoader
 
 		sample = { &X_sample, &y_sample };
 		return sample;
@@ -614,7 +612,6 @@ public:
 	*/
 	Batch get_all_samples() {
 		X_sample.set_values(sourceDataset->get_subset_X());
-		//Matrix Y_mat(one_hot_encode(sourceDataset->get_subset_y(rowsGiven - 1, rowsGiven))); // ALLOC - dims known on init of DataLoader
 
 		sample = { &X_sample, &y_sample };
 		return sample;
@@ -638,7 +635,7 @@ public:
 	* to be able to assign them back to Dataset.
 	*/
 	std::vector<double> one_hot_decode(std::vector<std::vector<double>> one_hot_labels) {
-		std::vector<double> labels(one_hot_labels.size()); // ALLOC - dims depend on n_rows of dataset
+		std::vector<double> labels(one_hot_labels.size()); 
 		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < one_hot_labels.size(); i++) {
 			std::vector<double>::iterator result = std::max_element(one_hot_labels[i].begin(), one_hot_labels[i].end());
@@ -747,10 +744,10 @@ public:
 			for (size_t i = 0; i < weightsShape[1]; i++) {
 				dropoutMask.set_value(0, i, b_rand.get_sample() / (1 - dropout));
 			}
-			return Matrix(inputs->dot(&weights).sum(&w0ext).multiply(&dropoutMask)); // ALLOC - dims known when calling nn.train / nn.predict
+			return Matrix(inputs->dot(&weights).sum(&w0ext).multiply(&dropoutMask)); 
 		}
 		else {
-			return Matrix(inputs->dot(&weights).sum(&w0ext)); // ALLOC - dims known when calling nn.train / nn.predict
+			return Matrix(inputs->dot(&weights).sum(&w0ext)); 
 		}
 	}
 
@@ -809,7 +806,7 @@ public:
 	* Applies a specific activiation function to whole batch.
 	*/
 	Matrix evaluate_batch(Matrix* batch_inner_potentials) {
-		Matrix result(batch_inner_potentials->get_shape()[0], batch_inner_potentials->get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
+		Matrix result(batch_inner_potentials->get_shape()[0], batch_inner_potentials->get_shape()[1]); 
 		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (int i = 0; i < batch_inner_potentials->get_shape()[0]; i++) {
 			result.set_row(i, evaluate_layer(batch_inner_potentials->get_values()[i]));
@@ -821,7 +818,7 @@ public:
 	* Applies derivation of a specific activiation function to whole batch.
 	*/
 	Matrix derive_batch(Matrix* batch_neuron_outputs, Matrix* batch_y_true = &Matrix()) {
-		Matrix result(batch_neuron_outputs->get_shape()[0], batch_neuron_outputs->get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
+		Matrix result(batch_neuron_outputs->get_shape()[0], batch_neuron_outputs->get_shape()[1]); 
 		if (batch_y_true->get_shape()[1] > 0) {
 			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < batch_neuron_outputs->get_shape()[0]; i++) {
@@ -850,7 +847,7 @@ private:
 	* Apply ReLU to the inner potentials of the layer.
 	*/
 	std::vector<double> evaluate_layer(std::vector<double> inner_potentials) {
-		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
+		std::vector<double> result(inner_potentials.size(), 0); 
 		for (size_t i = 0; i < inner_potentials.size(); i++) {
 			if (inner_potentials[i] > 0) result[i] = inner_potentials[i];
 		}
@@ -861,7 +858,7 @@ private:
 	* Apply derivative of ReLU to the layer.
 	*/
 	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
-		std::vector<double> result(neuron_outputs.size(), 0); // ALLOC - I know the dimensions on init of NN
+		std::vector<double> result(neuron_outputs.size(), 0); 
 		for (size_t i = 0; i < neuron_outputs.size(); i++) {
 			if (neuron_outputs[i] > 0) result[i] = 1;
 		}
@@ -876,7 +873,7 @@ private:
 	* Apply Softmax to the inner potentials of the layer.
 	*/
 	std::vector<double> evaluate_layer(std::vector<double> inner_potentials) {
-		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
+		std::vector<double> result(inner_potentials.size(), 0); 
 		double denominator = 0.0;
 		double inner_max = inner_potentials[0];
 		for (size_t i = 1; i < inner_potentials.size(); i++)
@@ -895,7 +892,7 @@ private:
 	* Apply derivative of Softmax with (!) Cross Entropy Loss function (!) to the layer.
 	*/
 	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
-		std::vector<double> result(neuron_outputs.size()); // ALLOC - I know the dimensions on init of NN
+		std::vector<double> result(neuron_outputs.size()); 
 		for (size_t i = 0; i < result.size(); i++) {
 			result[i] = neuron_outputs[i] - y_true[i];
 		}
@@ -966,10 +963,11 @@ public:
 	/**
 	* Initialize SGD with learning rate, momentum and option of Nesterov momentum.
 	*/
-	SGD(double learning_rate, double momentum_alpha = 0.0, bool nesterov = false, bool adaptive_learning_rate = false) : 
+	SGD(double learning_rate, double momentum_alpha = 0.0, bool nesterov = false, bool adaptive_learning_rate = false, int adjust_every_n_epochs = 0) : 
 		learningRate(learning_rate),
 		originalLearningRate(learning_rate),
 		adaptiveLearningRate(adaptive_learning_rate),
+		adjustEveryNEpochs(adjust_every_n_epochs),
 		momentumAlpha(momentum_alpha), 
 		nesterovMomentum(nesterov) {}
 
@@ -1027,7 +1025,7 @@ public:
 
 	void update_learning_rate(int n_epochs_done) {
 		if (adaptiveLearningRate) {
-			learningRate = originalLearningRate / ((n_epochs_done + 5) / 5);
+			learningRate = originalLearningRate / ((n_epochs_done + adjustEveryNEpochs) / adjustEveryNEpochs);
 		}
 	}
 
@@ -1042,11 +1040,12 @@ public:
 			previousWeightsUpdate.push_back(Matrix(nn_layers[i]->get_weights_shape()[0], nn_layers[i]->get_weights_shape()[1]));
 		}
 	}
-
+	
 private:
 	double learningRate;
 	double originalLearningRate;
 	bool adaptiveLearningRate;
+	int adjustEveryNEpochs;
 	double momentumAlpha;
 	bool nesterovMomentum;
 	std::vector<Matrix> currentBiasUpdate;
@@ -1175,8 +1174,6 @@ public:
 		int n_classes = layers[countLayers - 1]->get_weights().get_shape()[1];
 		std::vector<std::vector<double>> one_hot_predictions(n_predictions, std::vector<double>(n_classes));
 
-		// would be nice to pass the whole test dataset at once 
-		// and get rid off this while
 		prediction_dataloader->reset();
 
 		for (size_t i = 0; i < n_predictions; i++) {
@@ -1187,12 +1184,6 @@ public:
 
 		std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
 		prediction_dataloader->assign_predicted_labels(predictions);
-
-		//Batch batch = prediction_dataloader->get_all_samples();
-		//forward_pass(batch, false);
-		//one_hot_predictions = batch_output_probabilities_to_predictions()->get_values();
-		//std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
-		//prediction_dataloader->assign_predicted_labels(predictions);
 	}
 
 
@@ -1302,7 +1293,6 @@ private:
 
 	/**
 	* Creates Matrix ready to receive oneHotPredictions with dims based on batch size.
-	* TODO? reserve the Matrices also for innerPotentials, neuronOutputs, deltas,... ?
 	*/
 	void get_ready(DataLoader* dataloader) {
 		oneHotPredictions = Matrix(dataloader->get_batch_size(), CLASSES);
@@ -1329,7 +1319,7 @@ private:
 		double _epoch_sum_of_average_batch_losses = 0;
 		//double _epoch_sum_of_average_batch_metric = 0;
 		while (!train_dataloader->is_exhausted()) {
-			Batch batch = train_dataloader->get_sample(); // ALLOC
+			Batch batch = train_dataloader->get_sample(); 
 
 			forward_pass(batch, true);
 			backward_pass(batch);
@@ -1360,11 +1350,8 @@ private:
 		int _iter_in_epoch = 0;
 		double _epoch_sum_of_average_batch_losses = 0;
 		//double _epoch_sum_of_average_batch_metric = 0;
-		// would be nice to pass the whole validation dataset at once 
-		// and get rid off this while
-		// but the matrices would be probably too big
 		while (!validation_dataloader->is_exhausted()) {
-			Batch batch = validation_dataloader->get_sample(); // ALLOC ?
+			Batch batch = validation_dataloader->get_sample();
 
 			forward_pass(batch, false);
 
@@ -1384,45 +1371,41 @@ int main() {
 	std::srand(42);
 
 	int batch_size = 16;
-	double learning_rate = 0.001;
+	double learning_rate = 0.0008;
 
 	Dataset train;
 	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
 	train.load_labels("data/fashion_mnist_train_labels.csv");
-	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
-	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
-	//train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
-	//train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
 
 	Dataset validation = train.separate_validation_dataset(0.1);
 
 	DataLoader train_loader(&train, batch_size, 0);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 512, 0.2, 0.0);
-	Layer layer1(512, 128, 0.0, 0.0);
-	Layer layer2(128, CLASSES, 0.0, 0.0);
+	Layer layer0(train.get_X_cols(), 264, 0.2, 0.0);
+	Layer layer1(264, 64, 0.0, 0.0);
+	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
-	SGD sgd(learning_rate, 0.90, true, true);
+	SGD sgd(learning_rate, 0.90, true, true, 3);
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
 	NeuralNetwork nn({ &layer0, &layer1, &layer2 }, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	nn.train(2, &train_loader, &validation_loader, true, true);
+	nn.train(13, &train_loader, &validation_loader, true, true);
 
 	Dataset test;
 	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
 	DataLoader test_loader(&test, 1);
 	nn.predict(&test_loader);
-	test.save_labels("data/actualTestPredictions");
+	test.save_labels("./actualTestPredictions");
 
 	Dataset infer_train;
 	infer_train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
 	DataLoader infer_train_loader(&infer_train, 1);
 	nn.predict(&infer_train_loader);
-	infer_train.save_labels("data/trainPredictions");
+	infer_train.save_labels("./trainPredictions");
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
@@ -1430,4 +1413,3 @@ int main() {
 	std::cout << duration.count() << std::endl;
 
 }
-

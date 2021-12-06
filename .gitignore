@@ -377,3 +377,5 @@ src/nn/nn
 
 kcachegrind
 callgrind*
+
+preprocess_mnist.py
