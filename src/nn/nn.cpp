@@ -1,5 +1,4 @@
-﻿// PVS-Studio Static Code Analyzer for C, C++, C#, and Java: https://pvs-studio.com
-
+﻿
 // Dataset
 #include <iostream>
 #include <fstream>
@@ -16,71 +15,43 @@
 #include <algorithm>
 #include <ctime>
 
-// toto tady asi taky nenecham ne?
+// Hack
+#include <omp.h>
+
+int NUM_THREADS = 4;
 int CLASSES = 10;
 
+
+/**
+* Class for loading and saving data (predictions)
+* and returning desired subset of inputs and/or labels.
+* 
+* Also contains method to randomly shuffle itself
+* and method to return a new Dataset with a subset of its data.
+*/
 class Dataset
 {
 public:
+	/**
+	* Initialize Dataset directly with data
+	* Provide both - inputs and labels 
+	*/
 	Dataset(
 		std::vector<std::vector<double>> X_inp = { {} },
 		std::vector<double> y_inp = {}
-	) {
-		X = X_inp;
-		y = y_inp;
+	) : X(X_inp),
+		y(y_inp),
+		X_cols(X_inp[0].size()),
+		y_rows(y_inp.size())
+	{
 		if (X_inp[0].size() == 0) X_rows = 0; else X_rows = X_inp.size();
-		X_cols = X_inp[0].size();
-		y_rows = y_inp.size();
 	}
 
-	void load_data(std::string fpath, bool normalize = true) {
-		std::ifstream myfile(fpath);
-
-		if (myfile.is_open()) {
-
-			std::vector<std::vector<double>> res_mat;
-			std::string line;
-
-			double element;
-			char delimiter;
-
-			int rowcount = 0;
-			int normalizer = 1;
-			// MinMax normalization for ReLU activation function
-			if (normalize) normalizer = 255;
-
-			// TODO probably there is an easier and faster way in C++
-			while (std::getline(myfile, line))
-			{
-				std::stringstream sline(line);
-				std::vector<double> int_vec;
-
-				while (sline >> element >> delimiter || sline >> element) { // the "|| sline >> element" is not working - not returning anything
-					int_vec.push_back(element / normalizer);
-				}
-				sline >> element; // TODO make the while condition work properly and remove this
-				int_vec.push_back(element / normalizer); // TODO make the while condition work properly and remove this
-				res_mat.push_back(int_vec);
-				rowcount++;
-				if (rowcount % 1000 == 0) std::cout << rowcount << std::endl;
-			}
-
-			// save the data and dimensions of the dataset
-			if (rowcount > 0) {
-				X_rows = rowcount;
-				X_cols = res_mat.at(rowcount - 1).size();
-				X = res_mat;
-				std::cout << "Dataset successfully loaded. Shape: (" << X_rows << " x " << X_cols << ")." << std::endl;
-			}
-			else {
-				std::cerr << "No valid data found in the file.\n";
-			}
-		}
-		else {
-			std::cerr << "ERROR: Cannot open the file.\n";
-		}
-	}
-
+	/**
+	* Load inputs and save the dims
+	* Method expects data in "mnist" format - 784 columns
+	* Data minmax normalized by default
+	*/
 	void load_mnist_data(std::string fpath, bool normalize = true) {
 		std::ifstream myfile(fpath);
 
@@ -94,11 +65,10 @@ public:
 
 			int rowcount = 0;
 			int normalizer = 1;
-			// MinMax normalization for ReLU activation function
+
 			if (normalize) normalizer = 255;
 
 			std::vector<double> int_vec(784);
-			// TODO probably there is an easier and faster way in C++
 			while (std::getline(myfile, line))
 			{
 				std::stringstream sline(line);
@@ -115,10 +85,8 @@ public:
 
 				res_mat.push_back(int_vec);
 				rowcount++;
-				if (rowcount % 1000 == 0) std::cout << rowcount << std::endl;
 			}
 
-			// save the data and dimensions of the dataset
 			if (rowcount > 0) {
 				X_rows = rowcount;
 				X_cols = res_mat.at(rowcount - 1).size();
@@ -134,6 +102,9 @@ public:
 		}
 	}
 
+	/**
+	* Load labels and save the dims
+	*/
 	void load_labels(std::string fpath) {
 		std::ifstream myfile(fpath);
 
@@ -146,7 +117,6 @@ public:
 			while (myfile >> element) {
 				res_vec.push_back(element);
 				rowcount++;
-				if (rowcount % 1000 == 0) std::cout << rowcount << std::endl;
 			}
 
 			if (rowcount > 0) {
@@ -168,6 +138,9 @@ public:
 
 	}
 
+	/**
+	* Save predicted labels
+	*/
 	void save_labels(std::string fpath) {
 		std::ofstream myfile(fpath);
 		for (size_t i = 0; i < y_rows; i++) {
@@ -179,42 +152,50 @@ public:
 	int get_X_rows() {
 		return X_rows;
 	}
-
 	int get_X_cols() {
 		return X_cols;
 	}
 
+	/**
+	* Returns subset of X vectors between 'from' and 'to' index
+	*/
 	std::vector<std::vector<double>> get_subset_X(int from = 0, int to = -1) {
 		if (to == -1 || to >= X_rows) to = X_rows;
 		if (from < 0) from = 0;
 		if (from >= to) return { {} };
 		std::vector<std::vector<double>>::const_iterator first = X.begin() + from;
 		std::vector<std::vector<double>>::const_iterator last = X.begin() + to;
-		std::vector<std::vector<double>> subset(first, last); // ALLOC - dims known on init of Dataloader
+		std::vector<std::vector<double>> subset(first, last); 
 
 		return subset;
 	}
 
+	/**
+	* Returns subset of y vectors between 'from' and 'to' index
+	*/
 	std::vector<double> get_subset_y(int from = 0, int to = -1) {
 		if (to == -1 || to >= y_rows) to = y_rows;
 		if (from < 0) from = 0;
 		if (from >= to) return {};
 		std::vector<double>::const_iterator first = y.begin() + from;
 		std::vector<double>::const_iterator last = y.begin() + to;
-		std::vector<double> subset(first, last); // ALLOC - dims known on init of Dataloader
+		std::vector<double> subset(first, last); 
 
 		return subset;
 	}
 
+	/**
+	* Randomly changes order of input vectors and labels inplace while preserving the correct matching.
+	*/
 	void shuffle() {
-		std::vector<int> indexes; // ALLOC - dims known on init of Dataset
+		std::vector<int> indexes; 
 		indexes.reserve(X.size());
 		for (int i = 0; i < X.size(); ++i)
 			indexes.push_back(i);
 		std::random_shuffle(indexes.begin(), indexes.end());
 
-		std::vector<std::vector<double>> X_shuffled(X_rows, std::vector<double>(X_cols)); // ALLOC
-		std::vector<double> y_shuffled(X_rows); // ALLOC
+		std::vector<std::vector<double>> X_shuffled(X_rows, std::vector<double>(X_cols)); 
+		std::vector<double> y_shuffled(X_rows); 
 		for (int i = 0; i < X_rows; i++) {
 			X_shuffled[i] = X[indexes[i]];
 			y_shuffled[i] = y[indexes[i]];
@@ -223,6 +204,10 @@ public:
 		y = y_shuffled;
 	}
 
+	/**
+	* Randomly separates a desired share of data (typically validation dataset) 
+	* while reducing the data in itself.
+	*/
 	Dataset separate_validation_dataset(double validation_share, bool random = true) {
 		if ((validation_share <= 0) || (validation_share >= 1)) {
 			std::cerr << "ERROR: Share of data for validation must be between 0 and 1.\n";
@@ -245,29 +230,10 @@ public:
 
 		return validation_dataset;
 	}
-
-	std::vector<Dataset> split_dataset(std::vector<double> proportions, bool random = true) {
-		double sum_prop = 0;
-		for (size_t i = 0; i < proportions.size(); i++) {
-			sum_prop += proportions[i];
-		}
-		if (sum_prop != 1) {
-			std::cerr << "ERROR: Proportions must sum to 1.\n";
-			return { Dataset() };
-		}
-		std::vector<int> split_positions(1);
-		for (size_t i = 0; i < proportions.size(); i++) {
-			split_positions.push_back(X_rows * proportions[i] + split_positions[i]);
-		}
-		if (random)	shuffle();
-
-		std::vector<Dataset> datasets(proportions.size());
-		for (size_t i = 0; i < split_positions.size() - 1; i++) {
-			datasets[i] = Dataset(get_subset_X(split_positions[i], split_positions[i + 1]), get_subset_y(split_positions[i], split_positions[i + 1]));
-		}
-		return datasets;
-	}
-
+	
+	/**
+	* Replaces true labels (if present) with predicted ones
+	*/
 	void set_y(std::vector<double> y_pred) {
 		if (y_pred.size() != X_rows) std::cerr << "ERROR: Length of y does not correspond to length of X." << std::endl;
 		y = y_pred;
@@ -283,47 +249,86 @@ private:
 };
 
 
-class NormalRandomGenerator
+/**
+* Parent class for generating random numbers
+* 
+* Only requires the child classes to be able to sample from their distribution.
+*/
+class RandomGenerator
+{
+	virtual double get_sample() = 0;
+};
+
+/**
+* Provides sampling from normal distribution
+*/
+class NormalRandomGenerator : public RandomGenerator
 {
 public:
-	NormalRandomGenerator(double mean = 0, double std = 1) {
+	NormalRandomGenerator(double mean = 0, double std = 1) : mean(mean), std(std) {
 		std::random_device rd;
-		std::mt19937 gen(rd());
-		std::normal_distribution<double> distribution(mean, std);
 
-		Distribution = distribution;
-		Gen = gen;
-		Mean = mean;
-		Std = std;
+		distribution = std::normal_distribution<double>(mean, std);
+		gen = std::mt19937(rd());
 	}
 
 	double get_sample() {
-		return Distribution(Gen);
+		return distribution(gen);
 	}
 private:
-	std::normal_distribution<double> Distribution;
-	std::mt19937 Gen;
-	double Mean, Std;
+	std::normal_distribution<double> distribution;
+	std::mt19937 gen;
+	double mean, std;
+};
+
+/**
+* Provides sampling from Bernoulli distribution
+*/
+class BernoulliGenerator : public RandomGenerator
+{
+public:
+	BernoulliGenerator(double p = 0.5) : p(p) {
+		std::random_device rd;
+		gen = std::mt19937(rd());
+		distribution = std::bernoulli_distribution(p);
+	}
+
+	double get_sample() {
+		return distribution(gen);
+	}
+
+private:
+	std::bernoulli_distribution distribution;
+	std::mt19937 gen;
+	double p;
 };
 
 
-// ALLOC - tady je pravdepodobne hlavni misto pro optimalizace
-// urcite potrebuju nenarocne prenastavovani values, abych mohl jen ladovat nove hodnoty do predpripravenych matic
+/**
+* Stores matrix type data and basic metadat (nrows, ncols)
+* Implements all needed matrix operations.
+*/
 class Matrix
 {
 public:
 	Matrix() : values(0, std::vector<double>(0)), shape({0,0}) {}
 
-	/* Matrix init with given shape and default value */
+	/**
+	* Initialize with given shape and default value 
+	*/
 	Matrix(unsigned int nrow, unsigned int ncol, double default_value = 0) : 
 		values(nrow, std::vector<double>(ncol, default_value)), 
 		cachedValues(nrow, std::vector<double>(ncol, default_value)), 
 		shape({ nrow, ncol }) {}
 
-	/* Matrix init with given data */
+	/**
+	* Initialize with given data 
+	*/
 	Matrix(std::vector<std::vector<double>> data) : values(data), cachedValues(data), shape({data.size(), data[0].size()}) {}
 
-	/* Matrix random init with given shape */
+	/**
+	* Initialize with given shape 
+	*/
 	Matrix(unsigned int nrow, unsigned int ncol, double mean, double std) : 
 		values(nrow, std::vector<double>(ncol)),
 		cachedValues(nrow, std::vector<double>(ncol)), 
@@ -338,7 +343,6 @@ public:
 
 	void print_matrix() {
 		if (!values.empty() && !values.at(0).empty()) {
-
 			for (int i = 0; i < shape[0]; i++) {
 				std::cout << "[ ";
 				for (int j = 0; j < shape[1]; j++) {
@@ -366,6 +370,14 @@ public:
 	std::vector<std::vector<double>> get_values() {
 		return values;
 	}
+
+	/** 
+	* Reset values and update the shape if changing the whole matrix
+	*/
+	void set_values(std::vector<std::vector<double>> in_values) {
+		values = in_values;
+		shape = { in_values.size(), in_values[0].size() };
+	}
 	void set_value(int nrow, int ncol, double value) {
 		values[nrow][ncol] = value;
 	}
@@ -373,18 +385,22 @@ public:
 		values[nrow] = in_values;
 	}
 
-	Matrix dot(Matrix second) {
+	/** 
+	* Matrix multiplication
+	*/
+	Matrix dot(Matrix* second) {
 		int ncols1 = get_shape()[1];
-		int nrows2 = second.get_shape()[0];
+		int nrows2 = second->get_shape()[0];
 		if (ncols1 == nrows2) {
 			int nrows1 = get_shape()[0];
-			int ncols2 = second.get_shape()[1];
+			int ncols2 = second->get_shape()[1];
 			Matrix result(nrows1, ncols2);
 
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (int i = 0; i < nrows1; i++) {
 				for (int k = 0; k < nrows2; k++) {
 					for (int j = 0; j < ncols2; j++) {
-						result.values[i][j] += values[i][k] * second.values[k][j];
+						result.values[i][j] += values[i][k] * second->values[k][j];
 					}
 				}
 			}
@@ -392,15 +408,35 @@ public:
 		}
 		else {
 			std::cerr << "Nonconformable dimensions: mat1 is (x " << ncols1 << " ) but mat2 is (" << nrows2 << " y).\n";
-			Matrix result;
-			return result;
+			return Matrix();
 		}
 	}
 
+	/**
+	* Sum two matrices with same shape
+	*/
+	Matrix sum(Matrix* second) {
+		if (get_shape() == second->get_shape()) {
+			int nrow = get_shape()[0];
+			int ncol = get_shape()[1];
+			#pragma omp parallel for num_threads(NUM_THREADS)
+			for (int i = 0; i < nrow; i++) {
+				for (int j = 0; j < ncol; j++) {
+					cachedValues[i][j] = values[i][j] + second->values[i][j];
+				}
+			}
+			return Matrix(cachedValues);
+		}
+		else {
+			std::cerr << "Nonconformable dimensions, both dimensions must match.\n";
+			return Matrix();
+		}
+	}
 	Matrix sum(Matrix second) {
 		if (get_shape() == second.get_shape()) {
 			int nrow = get_shape()[0];
 			int ncol = get_shape()[1];
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (int i = 0; i < nrow; i++) {
 				for (int j = 0; j < ncol; j++) {
 					cachedValues[i][j] = values[i][j] + second.values[i][j];
@@ -413,54 +449,37 @@ public:
 			return Matrix();
 		}
 	}
-	void sum_ip(Matrix second) {
-		if (get_shape() == second.get_shape()) {
-			int nrow = get_shape()[0];
-			int ncol = get_shape()[1];
-			for (int i = 0; i < nrow; i++) {
-				for (int j = 0; j < ncol; j++) {
-					values[i][j] = values[i][j] + second.values[i][j];
-				}
-			}
-		}
-		else {
-			std::cerr << "Nonconformable dimensions, both dimensions must match.\n";
-		}
-	}
 
-	Matrix substract(Matrix second) {
-		if (get_shape() == second.get_shape()) {
-			int nrow = get_shape()[0];
-			int ncol = get_shape()[1];
-			for (int i = 0; i < nrow; i++) {
-				for (int j = 0; j < ncol; j++) {
-					cachedValues[i][j] = values[i][j] - second.values[i][j];
+	/**
+	* Elementwise multiplication by another matrix (with same shape)
+	* or by vector with corresponding lenght (equal to ncols).
+	*/
+	Matrix multiply(Matrix* multiplier) {
+		if (multiplier->get_shape()[0] == 1 && shape[1] == multiplier->get_shape()[1]) {
+			#pragma omp parallel for num_threads(NUM_THREADS)
+			for (size_t i = 0; i < shape[0]; i++) {
+				for (size_t j = 0; j < shape[1]; j++) {
+					cachedValues[i][j] = values[i][j] * multiplier->get_values()[0][j];
 				}
 			}
-			return Matrix(cachedValues);
 		}
-		else {
-			std::cerr << "Nonconformable dimensions, both dimensions must match.\n";
-			return Matrix();
-		}
-	}
-	void substract_ip(Matrix second) {
-		if (get_shape() == second.get_shape()) {
-			int nrow = get_shape()[0];
-			int ncol = get_shape()[1];
-			for (int i = 0; i < nrow; i++) {
-				for (int j = 0; j < ncol; j++) {
-					values[i][j] = values[i][j] - second.values[i][j];
+		else if (multiplier->get_shape() == shape) {
+			#pragma omp parallel for num_threads(NUM_THREADS)
+			for (size_t i = 0; i < shape[0]; i++) {
+				for (size_t j = 0; j < shape[1]; j++) {
+					cachedValues[i][j] = values[i][j] * multiplier->get_values()[i][j];
 				}
 			}
 		}
 		else {
-			std::cerr << "Nonconformable dimensions, both dimensions must match.\n";
+			std::cerr << "Nonconformable dimensions, multiplier must be either vector of shape (1, matrix.ncol) or matrix with matching dimensions.\n";
 		}
+		return Matrix(cachedValues);
 	}
 
 	Matrix multiply(Matrix multiplier) {
 		if (multiplier.get_shape()[0] == 1 && shape[1] == multiplier.get_shape()[1]) {
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier.get_values()[0][j];
@@ -468,55 +487,24 @@ public:
 			}
 		}
 		else if (multiplier.get_shape() == shape) {
+			#pragma omp parallel for num_threads(NUM_THREADS)
 			for (size_t i = 0; i < shape[0]; i++) {
 				for (size_t j = 0; j < shape[1]; j++) {
 					cachedValues[i][j] = values[i][j] * multiplier.get_values()[i][j];
 				}
-				std::cout << i << std::endl;
-			}
-		}
-		else if (multiplier.get_shape()[1] == 1) {
-			for (size_t i = 0; i < shape[0]; i++) {
-				for (size_t j = 0; j < shape[1]; j++) {
-					cachedValues[i][j] = values[i][j] * multiplier.get_values()[0][0];
-				}
 			}
 		}
 		else {
-			std::cerr << "Nonconformable dimensions, multiplier must be either {scalar} or vector of shape (1, matrix.ncol).\n";
+			std::cerr << "Nonconformable dimensions, multiplier must be either vector of shape (1, matrix.ncol) or matrix with matching dimensions.\n";
 		}
 		return Matrix(cachedValues);
 	}
 
-	void multiply_ip(Matrix multiplier) {
-		if (multiplier.get_shape()[0] == 1 && shape[1] == multiplier.get_shape()[1]) {
-			for (size_t i = 0; i < shape[0]; i++) {
-				for (size_t j = 0; j < shape[1]; j++) {
-					values[i][j] = values[i][j] * multiplier.get_values()[0][j];
-				}
-			}
-		}
-		else if (multiplier.get_shape() == shape) {
-			for (size_t i = 0; i < shape[0]; i++) {
-				for (size_t j = 0; j < shape[1]; j++) {
-					values[i][j] = values[i][j] * multiplier.get_values()[i][j];
-				}
-				std::cout << i << std::endl;
-			}
-		}
-		else if (multiplier.get_shape()[1] == 1) {
-			for (size_t i = 0; i < shape[0]; i++) {
-				for (size_t j = 0; j < shape[1]; j++) {
-					values[i][j] = values[i][j] * multiplier.get_values()[0][0];
-				}
-			}
-		}
-		else {
-			std::cerr << "Nonconformable dimensions, multiplier must be either {scalar} or vector of shape (1, matrix.ncol).\n";
-		}
-	}
-
+	/**
+	* Elementwise multiplication by single value.
+	*/
 	Matrix scalar_mul(double multiplier) {
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < shape[0]; i++) {
 			for (size_t j = 0; j < shape[1]; j++) {
 				cachedValues[i][j] = values[i][j] * multiplier;
@@ -524,75 +512,13 @@ public:
 		}
 		return Matrix(cachedValues);
 	}
-	void scalar_mul_ip(double multiplier) {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				values[i][j] = values[i][j] * multiplier;
-			}
-		}
-	}
 
-	Matrix add_scalar(double add) {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				cachedValues[i][j] = values[i][j] + add;
-			}
-		}
-		return Matrix(cachedValues);
-	}
-	void add_scalar_ip(double add) {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				values[i][j] = values[i][j] + add;
-			}
-		}
-	}
-
-	Matrix square_elements() {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				cachedValues[i][j] = pow(values[i][j], 2);
-			}
-		}
-		return Matrix(cachedValues);
-	}
-	void square_elements_ip() {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				values[i][j] = pow(values[i][j], 2);
-			}
-		}
-	}
-
-	Matrix root_elements() {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				cachedValues[i][j] = sqrt(values[i][j]);
-			}
-		}
-		return Matrix(cachedValues);
-	}
-	void root_elements_ip() {
-		for (size_t i = 0; i < shape[0]; i++) {
-			for (size_t j = 0; j < shape[1]; j++) {
-				values[i][j] = sqrt(values[i][j]);
-			}
-		}
-	}
-
-	void transpose() {
-		std::vector<std::vector<double>> transposed(shape[1], std::vector<double>(shape[0]));
-		for (size_t i = 0; i < transposed.size(); i++) {
-			for (size_t j = 0; j < transposed[i].size(); j++) {
-				transposed[i][j] = values[j][i];
-			}
-		}
-		values = transposed;
-		shape = { shape[1], shape[0] };
-	}
-
+	/**
+	* Returns new transposed matrix.
+	*/
 	Matrix get_transposed() {
 		std::vector<std::vector<double>> transposed(shape[1], std::vector<double>(shape[0]));
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < transposed.size(); i++) {
 			for (size_t j = 0; j < transposed[i].size(); j++) {
 				transposed[i][j] = values[j][i];
@@ -602,18 +528,15 @@ public:
 		return result;
 	}
 
+	/**
+	* Sums columns and returns it as new Matrix.
+	*/
 	Matrix col_sums() {
 		std::vector<double> sums(shape[1]);
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < shape[0]; i++)
 			for (size_t j = 0; j < shape[1]; j++)
 				sums[j] += values[i][j];
-		return Matrix({ sums });
-	}
-
-	Matrix row_sums() {
-		std::vector<double> sums(shape[0]);
-		for (size_t i = 0; i < shape[0]; i++)
-			sums[i] = std::accumulate(values[i].begin(), values[i].end(), 0);
 		return Matrix({ sums });
 	}
 
@@ -624,56 +547,96 @@ private:
 
 };
 
+
+/**
+* Structure for passing input features in batches together with labels to the NeuralNetwork.
+*/
 struct Batch {
-	Matrix X, Y;
+	Matrix* X, * Y;
 };
 
 
+/**
+* Class responsible for taking subset of data from the underlying dataset
+* and feeding them to the NeuralNetwork.
+* Rembers what rows it has already given.
+*/
 class DataLoader
 {
 public:
-	DataLoader(Dataset* dataset, int batch_size = 32) {
-		BatchSize = batch_size;
-		SourceDataset = dataset;
-		RowsTotal = dataset->get_X_rows();
-		RowsGiven = 0;
-		Exhausted = (SourceDataset->get_X_rows() <= RowsGiven);
-	}
+	/**
+	* Initialize DataLoader with underlying Dataset and required batch size.
+	*/
+	DataLoader(Dataset* dataset, int batch_size, int double_batch_size_every_n_epochs = 0) :
+		batchSize(batch_size),
+		doubleBatchSizeEveryNEpochs(double_batch_size_every_n_epochs),
+		sourceDataset(dataset),
+		rowsTotal(dataset->get_X_rows()),
+		rowsGiven(0),
+		exhausted((sourceDataset->get_X_rows() <= rowsGiven)),
+		X_sample(Matrix(batch_size, dataset->get_X_cols())),
+		y_sample(Matrix(batch_size, 1))
+	{}
 
+	/**
+	* Returns one Batch and updates its state.
+	*/
 	Batch get_sample() {
-		if (Exhausted) return { {} };
-		RowsGiven += BatchSize;
-		Exhausted = (SourceDataset->get_X_rows() <= RowsGiven);
+		if (exhausted) return {};
+		rowsGiven += batchSize;
+		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 
-		Matrix X_mat(SourceDataset->get_subset_X(RowsGiven - BatchSize, RowsGiven)); // ALLOC - dims known on init of DataLoader
-		Matrix Y_mat(one_hot_encode(SourceDataset->get_subset_y(RowsGiven - BatchSize, RowsGiven))); // ALLOC - dims known on init of DataLoader
+		X_sample.set_values(sourceDataset->get_subset_X(rowsGiven - batchSize, rowsGiven));
+		y_sample.set_values((one_hot_encode(sourceDataset->get_subset_y(rowsGiven - batchSize, rowsGiven))));
 
-		Batch sample = { X_mat, Y_mat };
+		sample = { &X_sample, &y_sample };
 		return sample;
 	}
 
+	/**
+	* Returns one sample and updates its state.
+	*/
 	Batch get_one_sample() {
-		if (Exhausted) return { {} };
-		RowsGiven += 1;
-		Exhausted = (SourceDataset->get_X_rows() <= RowsGiven);
+		if (exhausted) return {};
+		rowsGiven += 1;
+		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 
-		Matrix X_mat(SourceDataset->get_subset_X(RowsGiven - 1, RowsGiven)); // ALLOC - dims known on init of DataLoader
-		Matrix Y_mat(one_hot_encode(SourceDataset->get_subset_y(RowsGiven - 1, RowsGiven))); // ALLOC - dims known on init of DataLoader
+		X_sample.set_values(sourceDataset->get_subset_X(rowsGiven - 1, rowsGiven));
 
-		Batch sample = { X_mat, Y_mat };
+		sample = { &X_sample, &y_sample };
 		return sample;
 	}
 
+	/**
+	* Returns whole dataset in Batch format.
+	*/
 	Batch get_all_samples() {
-		Matrix X_mat(SourceDataset->get_subset_X()); // ALLOC - dims known on init of DataLoader
-		Matrix Y_mat(one_hot_encode(SourceDataset->get_subset_y())); // ALLOC - dims known on init of DataLoader
+		X_sample.set_values(sourceDataset->get_subset_X());
 
-		Batch sample = { X_mat, Y_mat };
+		sample = { &X_sample, &y_sample };
 		return sample;
 	}
 
+	/**
+	* Creates one hot encoded vectors from labels
+	* to be able to feed them to NeuralNetwork.
+	*/
+	std::vector<std::vector<double>> one_hot_encode(std::vector<double> labels) {
+		std::vector<std::vector<double>> one_hot_labels(labels.size(), std::vector<double>(CLASSES));
+		#pragma omp parallel for num_threads(NUM_THREADS)
+		for (size_t i = 0; i < labels.size(); i++) {
+			one_hot_labels[i][labels[i]] = 1;
+		}
+		return one_hot_labels;
+	}
+
+	/**
+	* Creates labels from one hot encoded predictions returned from NeuralNetwork
+	* to be able to assign them back to Dataset.
+	*/
 	std::vector<double> one_hot_decode(std::vector<std::vector<double>> one_hot_labels) {
-		std::vector<double> labels(one_hot_labels.size()); // ALLOC - dims depend on n_rows of dataset
+		std::vector<double> labels(one_hot_labels.size()); 
+		#pragma omp parallel for num_threads(NUM_THREADS)
 		for (size_t i = 0; i < one_hot_labels.size(); i++) {
 			std::vector<double>::iterator result = std::max_element(one_hot_labels[i].begin(), one_hot_labels[i].end());
 			labels[i] = std::distance(one_hot_labels[i].begin(), result);
@@ -681,109 +644,191 @@ public:
 		return labels;
 	}
 
+	/**
+	* Assigns the predicted labels back to the underlying Dataset.
+	*/
 	void assign_predicted_labels(std::vector<double> y_pred) {
-		SourceDataset->set_y(y_pred);
+		sourceDataset->set_y(y_pred);
 	}
 
+	/**
+	* Checks if all rows from Dataset were given.
+	*/
 	bool is_exhausted() {
-		return Exhausted;
+		return exhausted;
 	}
+
+	/**
+	* Make the instance forget how many rows it gave.
+	*/
 	void reset() {
-		RowsGiven = 0;
-		Exhausted = (SourceDataset->get_X_rows() <= RowsGiven);
+		rowsGiven = 0;
+		exhausted = (sourceDataset->get_X_rows() <= rowsGiven);
 	}
+
+	void update_batch_size(int epochs_done) {
+		if (doubleBatchSizeEveryNEpochs == 0) return;
+		if (epochs_done % doubleBatchSizeEveryNEpochs == 0) {
+			batchSize *= 2;
+		}
+	}
+
+	/**
+	* Reshuffles the underlying dataset.
+	*/
 	void shuffle_dataset() {
-		SourceDataset->shuffle();
+		sourceDataset->shuffle();
 	}
+
 	int get_n_rows() {
-		return RowsTotal;
+		return rowsTotal;
+	}
+	int get_batch_size() {
+		return batchSize;
 	}
 
 private:
-	Dataset* SourceDataset;
-	int BatchSize;
-	int RowsGiven;
-	int RowsTotal;
-	bool Exhausted;
-
-	std::vector<std::vector<double>> one_hot_encode(std::vector<double> labels) {
-		std::vector<std::vector<double>> one_hot_labels(labels.size(), std::vector<double>(CLASSES));
-		for (size_t i = 0; i < labels.size(); i++) {
-			one_hot_labels[i][labels[i]] = 1;
-		}
-		return one_hot_labels;
-	}
+	Dataset* sourceDataset;
+	int batchSize;
+	int doubleBatchSizeEveryNEpochs;
+	int rowsGiven;
+	int rowsTotal;
+	bool exhausted;
+	Matrix X_sample;
+	Matrix y_sample;
+	Batch sample;
 };
 
 
+/**
+* Class storing two Matrices - weights and bias
+* Impements forward pass.
+* Can reset its weights.
+* Two regularization methods are defined on the Layer's level - dropout and weight decay.
+*/
 class Layer {
 public:
-	Layer(int n_inputs, int n_outputs, bool rand_init = true, double mean = 0, double std = -9999) {
-		if (std == -9999) {
-			// He weights initialization
-			std = sqrt(2.0 / n_inputs);
-		}
-		Matrix w0_init(1, n_outputs, mean, std);
-		w0 = w0_init;
-		Matrix weights_init(n_inputs, n_outputs, mean, std);
-		weights = weights_init;
-		weightsShape = weights.get_shape();
-		w0Shape = w0.get_shape();
-	}
+	/**
+	* Initialization of the Layer with He random initialization of weights
+	* @params:
+	* n of inputs to the layer
+	* n of outputs from the layer
+	* percent of dropout
+	* weight_decay
+	*/
+	Layer(int n_inputs, int n_outputs, double dropout, double weight_decay) :
+		w0(Matrix(1, n_outputs, 0, sqrt(2.0 / n_inputs))),
+		weights(Matrix(n_inputs, n_outputs, 0, sqrt(2.0 / n_inputs))),
+		weightsShape(weights.get_shape()),
+		w0Shape(w0.get_shape()),
+		dropout(dropout),
+		weightDecay(weight_decay),
+		dropoutMask(Matrix(1, n_outputs)) {}
 
-	Matrix pass(Matrix inputs) {
-		int inputs_nrow = inputs.get_shape()[0];
-		std::vector<std::vector<double>> w0_ext_vals(inputs_nrow); // ALLOC - dims known when calling nn.train / nn.predict
+	/**
+	* Matrix multiplication of the input with weights and sum of the result with bias.
+	* For training the dropout is switched on, for inference no dropout.
+	*/
+	Matrix pass(Matrix* inputs, bool dropout_switch_on) {
+		int inputs_nrow = inputs->get_shape()[0];
+		if (inputs_nrow != w0ext.get_shape()[0]) {
+			w0ext = Matrix(inputs_nrow, w0Shape[1]);
+		}
 
 		for (int i = 0; i < inputs_nrow; i++)
-			w0_ext_vals[i] = w0.get_values()[0];
-		Matrix w0_ext(w0_ext_vals); // ALLOC - dims known when calling nn.train / nn.predict
+			w0ext.set_row(i, w0.get_values()[0]);
 
-		Matrix result = inputs.dot(weights).sum(w0_ext); // ALLOC - dims known when calling nn.train / nn.predict
-
-		return result;
+		if (dropout != 0.0 && dropout_switch_on) {
+			BernoulliGenerator b_rand(1 - dropout);
+			#pragma omp parallel for num_threads(NUM_THREADS)
+			for (size_t i = 0; i < weightsShape[1]; i++) {
+				dropoutMask.set_value(0, i, b_rand.get_sample() / (1 - dropout));
+			}
+			return Matrix(inputs->dot(&weights).sum(&w0ext).multiply(&dropoutMask)); 
+		}
+		else {
+			return Matrix(inputs->dot(&weights).sum(&w0ext)); 
+		}
 	}
 
 	Matrix get_weights() { return weights; }
 
-	void set_weights(Matrix new_weights) { weights = new_weights; }
+	/**
+	* Reset its weights with updated ones and apply the weight decay if specified.
+	*/
+	void set_weights(Matrix new_weights) {
+		if (weightDecay == 0.0) weights.set_values(new_weights.get_values());
+		else weights.set_values(new_weights.scalar_mul(1 - weightDecay).get_values());
+	}
 
 	std::vector<unsigned int> get_weights_shape() { return weightsShape; }
 
 	Matrix get_bias() { return w0; }
 
-	void set_bias(Matrix new_weights) { w0 = new_weights; }
+	/**
+	* Reset its biases with updated ones and apply the weight decay if specified.
+	*/
+	void set_bias(Matrix new_weights) {
+		if (weightDecay == 0.0) w0.set_values(new_weights.get_values());
+		else w0.set_values(new_weights.scalar_mul(1 - weightDecay).get_values());
+	}
 
 	std::vector<unsigned int> get_bias_shape() { return w0Shape; }
+
+	/**
+	* Creates space for extended Matrix of biases
+	* with numbers of rows determined by the batch size.
+	*/
+	void get_ready_for_pass(DataLoader* dataloader) {
+		w0ext = Matrix(dataloader->get_batch_size(), w0Shape[1]);
+	}
 
 private:
 	Matrix weights;
 	Matrix w0;
+	Matrix w0ext;
 	std::vector<unsigned int> weightsShape;
 	std::vector<unsigned int> w0Shape;
+	double dropout;
+	Matrix dropoutMask;
+	double weightDecay;
 };
 
 
+/**
+* Parent class for all activation functions.
+* Requires implementation of evaluation and derivation of a layer
+* and extends these methods to be able to evaluate/derive whole batch.
+*/
 class ActivationFunction {
 public:
-	Matrix evaluate_batch(Matrix batch_inner_potentials) {
-		Matrix result(batch_inner_potentials.get_shape()[0], batch_inner_potentials.get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
-		for (int i = 0; i < batch_inner_potentials.get_shape()[0]; i++) {
-			result.set_row(i, evaluate_layer(batch_inner_potentials.get_values()[i]));
+	/**
+	* Applies a specific activiation function to whole batch.
+	*/
+	Matrix evaluate_batch(Matrix* batch_inner_potentials) {
+		Matrix result(batch_inner_potentials->get_shape()[0], batch_inner_potentials->get_shape()[1]); 
+		#pragma omp parallel for num_threads(NUM_THREADS)
+		for (int i = 0; i < batch_inner_potentials->get_shape()[0]; i++) {
+			result.set_row(i, evaluate_layer(batch_inner_potentials->get_values()[i]));
 		}
 		return result;
 	}
 
-	Matrix derive_batch(Matrix batch_neuron_outputs, Matrix batch_y_true = Matrix()) {
-		Matrix result(batch_neuron_outputs.get_shape()[0], batch_neuron_outputs.get_shape()[1]); // ALLOC - I know the dimensions when calling nn.train
-		if (batch_y_true.get_shape()[1] > 0) {
-			for (size_t i = 0; i < batch_neuron_outputs.get_shape()[0]; i++) {
-				result.set_row(i, derive_layer(batch_neuron_outputs.get_values()[i], batch_y_true.get_values()[i]));
+	/**
+	* Applies derivation of a specific activiation function to whole batch.
+	*/
+	Matrix derive_batch(Matrix* batch_neuron_outputs, Matrix* batch_y_true = &Matrix()) {
+		Matrix result(batch_neuron_outputs->get_shape()[0], batch_neuron_outputs->get_shape()[1]); 
+		if (batch_y_true->get_shape()[1] > 0) {
+			#pragma omp parallel for num_threads(NUM_THREADS)
+			for (size_t i = 0; i < batch_neuron_outputs->get_shape()[0]; i++) {
+				result.set_row(i, derive_layer(batch_neuron_outputs->get_values()[i], batch_y_true->get_values()[i]));
 			}
 		}
 		else {
-			for (size_t i = 0; i < batch_neuron_outputs.get_shape()[0]; i++) {
-				result.set_row(i, derive_layer(batch_neuron_outputs.get_values()[i]));
+			#pragma omp parallel for num_threads(NUM_THREADS)
+			for (size_t i = 0; i < batch_neuron_outputs->get_shape()[0]; i++) {
+				result.set_row(i, derive_layer(batch_neuron_outputs->get_values()[i]));
 			}
 		}
 		return result;
@@ -798,15 +843,22 @@ private:
 
 class ReLU :public ActivationFunction {
 private:
+	/**
+	* Apply ReLU to the inner potentials of the layer.
+	*/
 	std::vector<double> evaluate_layer(std::vector<double> inner_potentials) {
-		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
+		std::vector<double> result(inner_potentials.size(), 0); 
 		for (size_t i = 0; i < inner_potentials.size(); i++) {
 			if (inner_potentials[i] > 0) result[i] = inner_potentials[i];
 		}
 		return result;
 	}
+
+	/**
+	* Apply derivative of ReLU to the layer.
+	*/
 	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
-		std::vector<double> result(neuron_outputs.size(), 0); // ALLOC - I know the dimensions on init of NN
+		std::vector<double> result(neuron_outputs.size(), 0); 
 		for (size_t i = 0; i < neuron_outputs.size(); i++) {
 			if (neuron_outputs[i] > 0) result[i] = 1;
 		}
@@ -815,37 +867,13 @@ private:
 
 };
 
-class Logistic :public ActivationFunction {
-private:
-	std::vector<double> evaluate_layer(std::vector<double> inner_potentials) {
-		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
-		for (size_t i = 0; i < inner_potentials.size(); i++) {
-			result[i] = evaluate(inner_potentials[i]);
-		}
-		return result;
-	}
-
-	double evaluate(double inner_potential) {
-		return 1 / (1 + exp(-inner_potential));
-	}
-
-	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
-		std::vector<double> result(neuron_outputs.size(), 0); // ALLOC - I know the dimensions on init of NN
-		for (size_t i = 0; i < neuron_outputs.size(); i++) {
-			result[i] = derive(neuron_outputs[i]);
-		}
-		return result;
-	}
-
-	double derive(double neuron_output) {
-		return evaluate(neuron_output) * (1 - evaluate(neuron_output));
-	}
-};
-
 class Softmax :public ActivationFunction {
 private:
+	/**
+	* Apply Softmax to the inner potentials of the layer.
+	*/
 	std::vector<double> evaluate_layer(std::vector<double> inner_potentials) {
-		std::vector<double> result(inner_potentials.size(), 0); // ALLOC - I know the dimensions on init of NN
+		std::vector<double> result(inner_potentials.size(), 0); 
 		double denominator = 0.0;
 		double inner_max = inner_potentials[0];
 		for (size_t i = 1; i < inner_potentials.size(); i++)
@@ -860,15 +888,11 @@ private:
 		return result;
 	}
 
-	// This is fujky and doesn't correspond to the structure of activation functions but I know why I'm doing it and what is going on!
-	// below is not derivative of Softmax itself
-	// it is product of derivative of cross entropy loss function and softmax activation function
-	// so it treats the last layer differently from other layers
-	// implements "two steps in one" compared to the derive_layer funcs of other activation functions
-	// corresponds to dE/dy * sigma'(inner_pottentials) (slide 106 in presentations)
-	// it is also source of the awful ifelse in derive_batch method
+	/**
+	* Apply derivative of Softmax with (!) Cross Entropy Loss function (!) to the layer.
+	*/
 	std::vector<double> derive_layer(std::vector<double> neuron_outputs, std::vector<double> y_true = {}) {
-		std::vector<double> result(neuron_outputs.size()); // ALLOC - I know the dimensions on init of NN
+		std::vector<double> result(neuron_outputs.size()); 
 		for (size_t i = 0; i < result.size(); i++) {
 			result[i] = neuron_outputs[i] - y_true[i];
 		}
@@ -876,23 +900,25 @@ private:
 	}
 };
 
+/**
+* Parent class for loss functions.
+* Requires implementation loss calculation for singe sample
+* and extends it to loss calculation for whole batch.
+*/
 class LossFunction {
 public:
 	virtual double calculate_loss(std::vector<double> y_true, std::vector<double> y_pred) = 0;
-	double calculate_sum_batch_loss(Matrix Y_true, Matrix Y_pred) {
-		batch_loss = 0.0;
-		for (int i = 0; i < Y_true.get_shape()[0]; i++) {
-			batch_loss += calculate_loss(Y_true.get_values()[i], Y_pred.get_values()[i]);
-		}
-		return batch_loss;
-	}
 
-	double calculate_mean_batch_loss(Matrix Y_true, Matrix Y_pred) {
+	/**
+	* Applies the loss function to whole batch.
+	*/
+	double calculate_mean_batch_loss(Matrix* Y_true, Matrix* Y_pred) {
 		batch_loss = 0.0;
-		for (int i = 0; i < Y_true.get_shape()[0]; i++) {
-			batch_loss += calculate_loss(Y_true.get_values()[i], Y_pred.get_values()[i]);
+		#pragma omp parallel for num_threads(NUM_THREADS)
+		for (int i = 0; i < Y_true->get_shape()[0]; i++) {
+			batch_loss += calculate_loss(Y_true->get_values()[i], Y_pred->get_values()[i]);
 		}
-		return batch_loss / Y_true.get_shape()[0];
+		return batch_loss / Y_true->get_shape()[0];
 	}
 
 private:
@@ -901,6 +927,9 @@ private:
 
 class CrossEntropyLoss :public LossFunction {
 public:
+	/**
+	* Calculates loss on single sample.
+	*/
 	double calculate_loss(std::vector<double> y_true, std::vector<double> y_pred) {
 		loss = 0.0;
 		for (size_t i = 0; i < y_true.size(); i++) {
@@ -914,21 +943,46 @@ private:
 
 };
 
+
+/**
+* Parent class for all optimizers.
+* Requires calculation of bias and weights update from given gradients.
+*/
 class Optimizer {
 public:
 	virtual std::vector<Matrix> calculate_bias_update(std::vector<Matrix> bias_grad) = 0;
 	virtual std::vector<Matrix> calculate_weights_update(std::vector<Matrix> weights_grad) = 0;
-	virtual void get_ready_for_optimization(std::vector<Layer *> nn_layers) = 0;
+	virtual void get_ready_for_optimization(std::vector<Layer*> nn_layers) = 0;
+	virtual void update_learning_rate(int n_epochs_done) = 0;
 private:
 	double learningRate;
 };
 
 class SGD :public Optimizer {
 public:
-	SGD(double learning_rate, double momentum_alpha = 0.0) : learningRate(learning_rate), momentumAlpha(momentum_alpha) {}
+	/**
+	* Initialize SGD with learning rate, momentum and option of Nesterov momentum.
+	*/
+	SGD(double learning_rate, double momentum_alpha = 0.0, bool nesterov = false, bool adaptive_learning_rate = false, int adjust_every_n_epochs = 0) : 
+		learningRate(learning_rate),
+		originalLearningRate(learning_rate),
+		adaptiveLearningRate(adaptive_learning_rate),
+		adjustEveryNEpochs(adjust_every_n_epochs),
+		momentumAlpha(momentum_alpha), 
+		nesterovMomentum(nesterov) {}
 
+	/**
+	* Calclutes the bias update from the given gradient.
+	*/
 	std::vector<Matrix> calculate_bias_update(std::vector<Matrix> bias_grad) {
-		if (momentumAlpha == 0.0) {
+		if (momentumAlpha != 0.0 && nesterovMomentum) {
+			for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
+				previousBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate).sum(previousBiasUpdate[i].scalar_mul(momentumAlpha));
+				currentBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate).sum(previousBiasUpdate[i].scalar_mul(momentumAlpha));
+			}
+			return currentBiasUpdate;
+		}
+		else if (momentumAlpha == 0.0) {
 			for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
 				currentBiasUpdate[i] = bias_grad[i].scalar_mul(-learningRate);
 			}
@@ -941,8 +995,18 @@ public:
 		return currentBiasUpdate;
 	}
 
+	/**
+	* Calclutes the weights update from the given gradient.
+	*/
 	std::vector<Matrix> calculate_weights_update(std::vector<Matrix> weights_grad) {
-		if (momentumAlpha == 0.0) {
+		if (momentumAlpha != 0.0 && nesterovMomentum) {
+			for (size_t i = 0; i < currentWeightsUpdate.size(); i++) {
+				previousWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate).sum(previousWeightsUpdate[i].scalar_mul(momentumAlpha));
+				currentWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate).sum(previousWeightsUpdate[i].scalar_mul(momentumAlpha));
+			}
+			return currentWeightsUpdate;
+		}
+		else if (momentumAlpha == 0.0) {
 			for (size_t i = 0; i < currentWeightsUpdate.size(); i++) {
 				currentWeightsUpdate[i] = weights_grad[i].scalar_mul(-learningRate);
 			}
@@ -959,6 +1023,15 @@ public:
 		set_weights_update_dimensions(nn_layers);
 	}
 
+	void update_learning_rate(int n_epochs_done) {
+		if (adaptiveLearningRate) {
+			learningRate = originalLearningRate / ((n_epochs_done + adjustEveryNEpochs) / adjustEveryNEpochs);
+		}
+	}
+
+	/**
+	* Prepares the optimizer for training by setting the initial updates.
+	*/
 	void set_weights_update_dimensions(std::vector<Layer*> nn_layers) {
 		for (size_t i = 0; i < nn_layers.size(); i++) {
 			currentBiasUpdate.push_back(Matrix(nn_layers[i]->get_bias_shape()[0], nn_layers[i]->get_bias_shape()[1]));
@@ -967,82 +1040,37 @@ public:
 			previousWeightsUpdate.push_back(Matrix(nn_layers[i]->get_weights_shape()[0], nn_layers[i]->get_weights_shape()[1]));
 		}
 	}
-
+	
 private:
 	double learningRate;
+	double originalLearningRate;
+	bool adaptiveLearningRate;
+	int adjustEveryNEpochs;
 	double momentumAlpha;
+	bool nesterovMomentum;
 	std::vector<Matrix> currentBiasUpdate;
 	std::vector<Matrix> currentWeightsUpdate;
 	std::vector<Matrix> previousBiasUpdate;
 	std::vector<Matrix> previousWeightsUpdate;
 };
 
-class RMSProp :public Optimizer {
-public:
-	RMSProp(double learning_rate, double rho_forgetting = 0.0) : learningRate(learning_rate), rhoForgetting(rho_forgetting) {}
 
-	std::vector<Matrix> calculate_bias_update(std::vector<Matrix> bias_grad) {
-		for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
-			std::cout << "bias " << i << std::endl;
-			cumulativeBiasUpdate[i] = cumulativeBiasUpdate[i].scalar_mul(rhoForgetting).sum(bias_grad[i].square_elements().scalar_mul(1 - rhoForgetting));
-			std::cout << "bias " << i << std::endl;
-			currentBiasUpdate[i] = cumulativeBiasUpdate[i].add_scalar(delta).root_elements().scalar_mul(-learningRate).multiply(bias_grad[i]);
-		}
-		return currentBiasUpdate;
-	}
-
-	std::vector<Matrix> calculate_weights_update(std::vector<Matrix> weights_grad) {
-		for (size_t i = 0; i < currentBiasUpdate.size(); i++) {
-			std::cout << "weights " << i << std::endl;
-			cumulativeWeightsUpdate[i] = cumulativeWeightsUpdate[i].scalar_mul(rhoForgetting).sum(weights_grad[i].square_elements().scalar_mul(1 - rhoForgetting));
-			std::cout << "weights " << i << std::endl;
-
-			cumulativeWeightsUpdate[i].add_scalar_ip(delta);
-			cumulativeWeightsUpdate[i].root_elements_ip();
-			cumulativeWeightsUpdate[i].scalar_mul_ip(-learningRate);
-			cumulativeWeightsUpdate[i].multiply_ip(weights_grad[i]);
-			//currentWeightsUpdate[i] = cumulativeWeightsUpdate[i].add_scalar(delta).root_elements().scalar_mul(-learningRate).multiply(weights_grad[i]); // posledni multiply je killer
-			std::cout << "weights " << i << std::endl;
-		}
-		return currentWeightsUpdate;
-	}
-
-	void get_ready_for_optimization(std::vector<Layer*> nn_layers) {
-		set_weights_update_dimensions(nn_layers);
-	}
-
-	void set_weights_update_dimensions(std::vector<Layer*> nn_layers) {
-		for (size_t i = 0; i < nn_layers.size(); i++) {
-			currentBiasUpdate.push_back(Matrix(nn_layers[i]->get_bias_shape()[0], nn_layers[i]->get_bias_shape()[1]));
-			cumulativeBiasUpdate.push_back(Matrix(nn_layers[i]->get_bias_shape()[0], nn_layers[i]->get_bias_shape()[1]));
-			currentWeightsUpdate.push_back(Matrix(nn_layers[i]->get_weights_shape()[0], nn_layers[i]->get_weights_shape()[1]));
-			cumulativeWeightsUpdate.push_back(Matrix(nn_layers[i]->get_weights_shape()[0], nn_layers[i]->get_weights_shape()[1]));
-		}
-	}
-
-private:
-	double learningRate;
-	double rhoForgetting;
-	std::vector<Matrix> currentBiasUpdate;
-	std::vector<Matrix> currentWeightsUpdate;
-	std::vector<Matrix> cumulativeBiasUpdate;
-	std::vector<Matrix> cumulativeWeightsUpdate;
-	const double delta = 0.0001;
-};
-
+/**
+* Parent class for metrics requiring method for calculation the metric for whole batch.
+*/
 class Metric {
 public:
-	virtual double calculate_metric_for_batch(Matrix Y_true, Matrix Y_pred) = 0;
+	virtual double calculate_metric_for_batch(Matrix* Y_true, Matrix* Y_pred) = 0;
 };
 
 class Accuracy :public Metric {
 public:
-	double calculate_metric_for_batch(Matrix Y_true, Matrix Y_pred) {
+	double calculate_metric_for_batch(Matrix* Y_true, Matrix* Y_pred) {
 		count_true_in_batch = 0.0;
-		for (size_t i = 0; i < Y_true.get_shape()[0]; i++) {
-			count_true_in_batch += (Y_true.get_values()[i] == Y_pred.get_values()[i]);
+		for (size_t i = 0; i < Y_true->get_shape()[0]; i++) {
+			count_true_in_batch += (Y_true->get_values()[i] == Y_pred->get_values()[i]);
 		}
-		return count_true_in_batch / Y_true.get_shape()[0];
+		return count_true_in_batch / Y_true->get_shape()[0];
 	}
 
 private:
@@ -1054,8 +1082,12 @@ private:
 
 };
 
+
 class NeuralNetwork {
 public:
+	/**
+	* Initialize NeuralNetwork if lengths of layers and activation functions are matching.
+	*/
 	NeuralNetwork(
 		std::vector<Layer*> layers,
 		std::vector<ActivationFunction*> activation_functions,
@@ -1076,6 +1108,7 @@ public:
 			lossFunction = loss_function;
 			this->metric = metric;
 			epochsDone = 0;
+			oneHotPredictions = Matrix();
 
 			this->optimizer->get_ready_for_optimization(this->layers);
 		}
@@ -1085,14 +1118,47 @@ public:
 	}
 
 
-	void train(int epochs, DataLoader* train_dataset, DataLoader* validation_dataset, bool shuffle_train = true) {
+	/**
+	* Changes network's state (weights) by training for n epochs on train dataset
+	* and validates the results after every epoch.
+	* Displays basic info about the training.
+	* Reshuffles train dataset at the beginning of every epoch if desired.
+	*/
+	void train(int epochs, DataLoader* train_dataset, DataLoader* validation_dataset, bool early_stopping, bool shuffle_train = true) {
 		for (int i = 0; i < epochs; i++) {
+
+			auto start = std::chrono::high_resolution_clock::now();
+
 			std::cout << "Epoch " << epochsDone + 1 << ":" << std::endl;
 			train_epoch(train_dataset, shuffle_train);
 			epochsDone++;
 			display_train_metrics_from_last_epoch();
 			validate_epoch(validation_dataset);
 			display_validation_metrics_from_last_epoch();
+
+			layersHistory.push_back(layers);
+
+			if (early_stopping && epochsDone > 3) {
+				if (((validationLossInEpoch[i - 3] < validationLossInEpoch[i - 2]) &&
+					(validationLossInEpoch[i - 2] < validationLossInEpoch[i - 1]) &&
+					(validationLossInEpoch[i - 1] < validationLossInEpoch[i])) ||
+					(epochsDone == epochs)) {
+					double min = 99999;
+					double argmin = 0;
+					for (int i = 0; i < epochsDone; i++) {
+						if (validationLossInEpoch[i] < min) {
+							min = validationLossInEpoch[i];
+							argmin = i;
+						}
+					}
+					layers = layersHistory[argmin];
+				}
+			}
+
+			auto stop = std::chrono::high_resolution_clock::now();
+
+			auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
+			std::cout << duration.count() << std::endl;
 			std::cout << std::endl;
 		}
 	}
@@ -1108,24 +1174,16 @@ public:
 		int n_classes = layers[countLayers - 1]->get_weights().get_shape()[1];
 		std::vector<std::vector<double>> one_hot_predictions(n_predictions, std::vector<double>(n_classes));
 
-		// would be nice to pass the whole test dataset at once 
-		// and get rid off this while
 		prediction_dataloader->reset();
 
 		for (size_t i = 0; i < n_predictions; i++) {
 			Batch batch = prediction_dataloader->get_one_sample();
-			forward_pass(batch);
-			one_hot_predictions[i] = batch_output_probabilities_to_predictions().get_values()[0];
+			forward_pass(batch, false);
+			one_hot_predictions[i] = batch_output_probabilities_to_predictions()->get_values()[0];
 		}
 
 		std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
 		prediction_dataloader->assign_predicted_labels(predictions);
-
-		//Batch batch = prediction_dataloader->get_all_samples();
-		//forward_pass(batch);
-		//one_hot_predictions = batch_output_probabilities_to_predictions().get_values();
-		//std::vector<double> predictions = prediction_dataloader->one_hot_decode(one_hot_predictions);
-		//prediction_dataloader->assign_predicted_labels(predictions);
 	}
 
 
@@ -1138,6 +1196,7 @@ private:
 	Metric* metric;
 	std::vector<Matrix> innerPotentials;
 	std::vector<Matrix> neuronsOutputs;
+	Matrix oneHotPredictions;
 	std::vector<Matrix> deltas;
 	std::vector<Matrix> biasGradients;
 	std::vector<Matrix> weightsGradients;
@@ -1148,61 +1207,95 @@ private:
 	std::vector<double> trainMetricInEpoch;
 	std::vector<double> validationMetricInEpoch;
 
-	void forward_pass(Batch batch) {
-		neuronsOutputs[0] = batch.X;
+	std::vector<std::vector<Layer*>> layersHistory;
+
+	/**
+	* Iterates over all layers and activation functions to get predictions from input features.
+	*/
+	void forward_pass(Batch batch, bool dropout_switch_on) {
+		neuronsOutputs[0] = (*batch.X);
 		for (size_t i = 0; i < countLayers; i++)
 		{
-			innerPotentials[i] = layers[i]->pass(neuronsOutputs[i]);
-			neuronsOutputs[i + 1] = activationFunctions[i]->evaluate_batch(innerPotentials[i]);
+			innerPotentials[i].set_values(layers[i]->pass(&neuronsOutputs[i], dropout_switch_on).get_values());
+			neuronsOutputs[i + 1].set_values(activationFunctions[i]->evaluate_batch(&innerPotentials[i]).get_values());
 		}
 	}
 
+	/**
+	* Iterates over all layers and activation functions backwards to get gradients.
+	*/
 	void backward_pass(Batch batch) {
-		deltas[countLayers - 1] = activationFunctions[countLayers - 1]->derive_batch(neuronsOutputs[countLayers], batch.Y);
-		weightsGradients[countLayers - 1] = neuronsOutputs[countLayers - 1].get_transposed().dot(deltas[countLayers - 1]);
+		deltas[countLayers - 1].set_values(activationFunctions[countLayers - 1]->derive_batch(&neuronsOutputs[countLayers], batch.Y).get_values());
+
+		weightsGradients[countLayers - 1] = neuronsOutputs[countLayers - 1].get_transposed().dot(&deltas[countLayers - 1]);
 		biasGradients[countLayers - 1] = deltas[countLayers - 1].col_sums();
 
 		for (int i = countLayers - 2; i >= 0; i--) {
-			deltas[i] = activationFunctions[i]->derive_batch(innerPotentials[i]).multiply(deltas[i + 1].dot(layers[i + 1]->get_weights().get_transposed()));
-			weightsGradients[i] = neuronsOutputs[i].get_transposed().dot(deltas[i]);
+			deltas[i] = activationFunctions[i]->derive_batch(&innerPotentials[i]).multiply(deltas[i + 1].dot(&layers[i + 1]->get_weights().get_transposed()));
+			weightsGradients[i] = neuronsOutputs[i].get_transposed().dot(&deltas[i]);
 			biasGradients[i] = deltas[i].col_sums();
 		}
 	}
 
+	/**
+	* Supplies the computed gradients to the optimizer and performs one optimization step
+	*/
 	void optimize() {
 		update_layers(optimizer->calculate_bias_update(biasGradients), optimizer->calculate_weights_update(weightsGradients));
 	}
 
+	/**
+	* Updates layers' weights and biases with updates returned from the optimizer.
+	*/
 	void update_layers(std::vector<Matrix> bias_update, std::vector<Matrix> weights_update) {
 		for (size_t i = 0; i < countLayers; i++) {
-			layers[i]->set_bias(layers[i]->get_bias().sum(bias_update[i]));
-			layers[i]->set_weights(layers[i]->get_weights().sum(weights_update[i]));
+			layers[i]->set_bias(layers[i]->get_bias().sum(&bias_update[i]));
+			layers[i]->set_weights(layers[i]->get_weights().sum(&weights_update[i]));
 		}
 	}
 
-	Matrix batch_output_probabilities_to_predictions() {
-		std::vector<std::vector<double>> one_hot_predictions(neuronsOutputs[countLayers].get_shape()[0], std::vector<double>(neuronsOutputs[countLayers].get_shape()[1])); // ALLOC - dims known on nn init
-		for (size_t i = 0; i < one_hot_predictions.size(); i++) {
-			double max = 0;
-			int argmax = 0;
-			for (size_t j = 0; j < one_hot_predictions[i].size(); j++) {
+	/**
+	* Performs argmax on predicted probabilities to get one hot encoded predictions.
+	*/
+	Matrix* batch_output_probabilities_to_predictions() {
+		oneHotPredictions.set_values(std::vector<std::vector<double>>(neuronsOutputs[countLayers].get_shape()[0], std::vector<double>(neuronsOutputs[countLayers].get_shape()[1])));
+		double max = 0;
+		int argmax = 0;
+		for (size_t i = 0; i < oneHotPredictions.get_shape()[0]; i++) {
+			max = 0;
+			argmax = 0;
+			for (size_t j = 0; j < oneHotPredictions.get_shape()[1]; j++) {
 				if (neuronsOutputs[countLayers].get_values()[i][j] > max) {
 					max = neuronsOutputs[countLayers].get_values()[i][j];
 					argmax = j;
 				}
 			}
-			one_hot_predictions[i][argmax] = 1;
+			oneHotPredictions.set_value(i, argmax, 1);
 		}
-		return Matrix(one_hot_predictions);
+		return &oneHotPredictions;
 	}
 
+	/**
+	* Information about training from one training epoch.
+	*/
 	void display_train_metrics_from_last_epoch() {
 		std::cout << "Train loss: " << trainLossInEpoch[epochsDone - 1] << std::endl;
-		std::cout << "Train metric: " << trainMetricInEpoch[epochsDone - 1] << std::endl;
+		//std::cout << "Train metric: " << trainMetricInEpoch[epochsDone - 1] << std::endl;
 	}
+
+	/**
+	* Information about validation from one training epoch.
+	*/
 	void display_validation_metrics_from_last_epoch() {
 		std::cout << "Validation loss: " << validationLossInEpoch[epochsDone - 1] << std::endl;
-		std::cout << "Validation metric: " << validationMetricInEpoch[epochsDone - 1] << std::endl;
+		//std::cout << "Validation metric: " << validationMetricInEpoch[epochsDone - 1] << std::endl;
+	}
+
+	/**
+	* Creates Matrix ready to receive oneHotPredictions with dims based on batch size.
+	*/
+	void get_ready(DataLoader* dataloader) {
+		oneHotPredictions = Matrix(dataloader->get_batch_size(), CLASSES);
 	}
 
 	/**
@@ -1214,23 +1307,30 @@ private:
 	void train_epoch(DataLoader* train_dataloader, bool shuffle) {
 		if (shuffle) train_dataloader->shuffle_dataset();
 		train_dataloader->reset();
+		train_dataloader->update_batch_size(epochsDone);
+		optimizer->update_learning_rate(epochsDone);
 
+		get_ready(train_dataloader);
+
+		for (size_t i = 0; i < countLayers; i++) {
+			layers[i]->get_ready_for_pass(train_dataloader);
+		}
 		int _iter_in_epoch = 0;
 		double _epoch_sum_of_average_batch_losses = 0;
-		double _epoch_sum_of_average_batch_metric = 0;
+		//double _epoch_sum_of_average_batch_metric = 0;
 		while (!train_dataloader->is_exhausted()) {
-			Batch batch = train_dataloader->get_sample(); // ALLOC
+			Batch batch = train_dataloader->get_sample(); 
 
-			forward_pass(batch);
+			forward_pass(batch, true);
 			backward_pass(batch);
 			optimize();
 
-			_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, neuronsOutputs[countLayers]);
-			_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
+			_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, &neuronsOutputs[countLayers]);
+			//_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
 			_iter_in_epoch++;
 		}
 		trainLossInEpoch.push_back(_epoch_sum_of_average_batch_losses / _iter_in_epoch);
-		trainMetricInEpoch.push_back(_epoch_sum_of_average_batch_metric / _iter_in_epoch);
+		//trainMetricInEpoch.push_back(_epoch_sum_of_average_batch_metric / _iter_in_epoch);
 	}
 
 	/**
@@ -1242,23 +1342,25 @@ private:
 	void validate_epoch(DataLoader* validation_dataloader) {
 		validation_dataloader->reset();
 
+		get_ready(validation_dataloader);
+
+		for (size_t i = 0; i < countLayers; i++) {
+			layers[i]->get_ready_for_pass(validation_dataloader);
+		}
 		int _iter_in_epoch = 0;
 		double _epoch_sum_of_average_batch_losses = 0;
-		double _epoch_sum_of_average_batch_metric = 0;
-		// would be nice to pass the whole validation dataset at once 
-		// and get rid off this while
-		// but the matrices would be probably too big
+		//double _epoch_sum_of_average_batch_metric = 0;
 		while (!validation_dataloader->is_exhausted()) {
-			Batch batch = validation_dataloader->get_sample(); // ALLOC ?
+			Batch batch = validation_dataloader->get_sample();
 
-			forward_pass(batch);
+			forward_pass(batch, false);
 
-			_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, neuronsOutputs[countLayers]);
-			_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
+			_epoch_sum_of_average_batch_losses += lossFunction->calculate_mean_batch_loss(batch.Y, &neuronsOutputs[countLayers]);
+			//_epoch_sum_of_average_batch_metric += metric->calculate_metric_for_batch(batch.Y, batch_output_probabilities_to_predictions());
 			_iter_in_epoch++;
 		}
 		validationLossInEpoch.push_back(_epoch_sum_of_average_batch_losses / _iter_in_epoch);
-		validationMetricInEpoch.push_back(_epoch_sum_of_average_batch_metric / _iter_in_epoch);
+		//validationMetricInEpoch.push_back(_epoch_sum_of_average_batch_metric / _iter_in_epoch);
 	}
 };
 
@@ -1266,48 +1368,48 @@ int main() {
 
 	auto start = std::chrono::high_resolution_clock::now();
 
+	std::srand(42);
+
 	int batch_size = 16;
-	double learning_rate = 0.01;
+	double learning_rate = 0.0008;
 
 	Dataset train;
-	//train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
-	//train.load_labels("data/fashion_mnist_train_labels.csv");
-	//train.load_mnist_data("data/fashion_mnist_train_vectors_00.csv", true);
-	//train.load_labels("data/fashion_mnist_train_labels_00.csv");
-	train.load_mnist_data("../../data/fashion_mnist_train_vectors_00.csv", true);
-	train.load_labels("../../data/fashion_mnist_train_labels_00.csv");
+	train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	train.load_labels("data/fashion_mnist_train_labels.csv");
 
-	Dataset validation = train.separate_validation_dataset(0.2);
+	Dataset validation = train.separate_validation_dataset(0.1);
 
-	DataLoader train_loader(&train, batch_size);
+	DataLoader train_loader(&train, batch_size, 0);
 	DataLoader validation_loader(&validation, 200);
 
-	Layer layer0(train.get_X_cols(), 128, true);
-	Layer layer1(128, 32, true);
-	Layer layer2(32, CLASSES, true);
+	Layer layer0(train.get_X_cols(), 264, 0.2, 0.0);
+	Layer layer1(264, 64, 0.0, 0.0);
+	Layer layer2(64, CLASSES, 0.0, 0.0);
 	ReLU relu;
 	Softmax softmax;
-	SGD sgd(learning_rate, 0.5);
-	RMSProp rmsprop(learning_rate, 0.9);
+	SGD sgd(learning_rate, 0.90, true, true, 3);
 	CrossEntropyLoss loss_func;
 	Accuracy acc;
 
+	NeuralNetwork nn({ &layer0, &layer1, &layer2 }, { &relu, &relu, &softmax }, &sgd, &loss_func, &acc);
 
-	NeuralNetwork nn({ &layer0, &layer1, &layer2}, { &relu, &relu, &softmax }, &rmsprop, &loss_func, &acc);
+	nn.train(13, &train_loader, &validation_loader, true, true);
 
-	nn.train(5, &train_loader, &validation_loader);
+	Dataset test;
+	test.load_mnist_data("data/fashion_mnist_test_vectors.csv", true);
+	DataLoader test_loader(&test, 1);
+	nn.predict(&test_loader);
+	test.save_labels("./actualTestPredictions");
 
-	//Dataset test;
-	//test.load_data("data/fashion_mnist_test_vectors.csv", true);
-	//DataLoader test_loader(&test, 200);
-
-	//nn.predict(&test_loader);
-
-	//test.save_labels("data/actualPredictionsExample");
+	Dataset infer_train;
+	infer_train.load_mnist_data("data/fashion_mnist_train_vectors.csv", true);
+	DataLoader infer_train_loader(&infer_train, 1);
+	nn.predict(&infer_train_loader);
+	infer_train.save_labels("./trainPredictions");
 
 	auto stop = std::chrono::high_resolution_clock::now();
 
 	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start);
 	std::cout << duration.count() << std::endl;
-}
 
+}
