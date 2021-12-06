@@ -1,5 +1,5 @@
 ### About
-Neural network (MLP) implemented from scratch in C++. \n
+Neural network (MLP) implemented from scratch in C++. \
 The task was to load data, train network, evaluate and export results within 30 minutes and reach 88 % accuracy on the test set.
 
 #### Running the code
